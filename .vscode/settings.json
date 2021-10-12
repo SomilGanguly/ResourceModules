@@ -12,6 +12,14 @@
         "editor.insertSpaces": true,
         "editor.tabSize": 2
     },
+    "[arm-template]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+    },
+    "[json]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+    },
     "editor.formatOnPaste": true,
     "editor.formatOnSave": true,
     "editor.insertSpaces": true,
