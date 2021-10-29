@@ -156,13 +156,13 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
 2. Now, Browse back to `yml` pipeline to initiate the trigger, location `.github/workflows`.
  <img src="./media/workflow.PNG" alt="WorkFlow" height="500" width="295">
 3. Select the workflow that need to be initialted and click on `Run workflow`. This will prompt with the input parameter.
+
     * Trigger from branch name.
     * Remove deployed module
     * The mode to handle the version increments [major|minor|patch|custom]
     * The version to enforce if [versionOption] is set to [custom]
 
-![Trigger](./media/trigger.PNG)
-
+<img src="./media/trigger.PNG" alt="Trigger" height="500" width="295">
 4. This will trigger below workflow jobs in sequence.
 
 ```
