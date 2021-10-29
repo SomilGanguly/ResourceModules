@@ -154,8 +154,8 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
     * publishToTemplateSpec
 
 2. Now, Browse back to `yml` pipeline to initiate the trigger, location `.github/workflows`.
-![WorkFlow](/media/workflow.PNG)
-
+![WorkFlow](./media/workflow.PNG)
+ <img src="./media/workflow.PNG" alt="How to download repository" height="266" width="295">
 3. Select the workflow that need to be initialted and click on `Run workflow`. This will prompt with the input parameter.
     * Trigger from branch name.
     * Remove deployed module
