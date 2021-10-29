@@ -176,7 +176,9 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
      - Publish module
      - Publish module
 ```
+4. This will trigger below workflow jobs in sequence.
+
 <img src="./media/workflowcompletion.PNG" alt="Workflow Completion" height="400" width="1200">
 
-4. This will trigger below workflow jobs in sequence.
+
 
