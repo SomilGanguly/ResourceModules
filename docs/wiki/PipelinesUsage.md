@@ -162,6 +162,7 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
     * The mode to handle the version increments [major|minor|patch|custom]
     * The version to enforce if [versionOption] is set to [custom]
 
+
 <img src="./media/trigger.PNG" alt="Trigger" height="500" width="295">
 4. This will trigger below workflow jobs in sequence.
 
@@ -174,5 +175,6 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
      - Publish module
      - Publish module
 ```
-![Workflow Completion](./media/workflowcompletion.PNG)
+<img src="./media/workflowcompletion.PNG" alt="Workflow Completion" height="500" width="295">
+4. This will trigger below workflow jobs in sequence.
 
