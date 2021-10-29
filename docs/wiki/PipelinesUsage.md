@@ -155,7 +155,8 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
 
 2. Now, Browse back to `yml` pipeline to initiate the trigger, location `.github/workflows`.
  <img src="./media/workflow.PNG" alt="WorkFlow" height="500" width="295">
-3. Select the workflow that need to be initialted and click on `Run workflow`. This will prompt with the input parameter.
+
+3. Select the workflow that need to be initiated and click on `Run workflow`. This will prompt with the input parameter.
 
     * Trigger from branch name.
     * Remove deployed module
