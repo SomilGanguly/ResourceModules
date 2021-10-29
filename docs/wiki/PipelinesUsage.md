@@ -39,7 +39,7 @@ ResourceModules
 
 All the workflow files must be stored in `.github/workflows` directory in the repository to have it working.
 
-![Work Flow Files](/media/workflow_files.PNG)
+![Work Flow Files](./media/workflow_files.PNG)
 
 To "build" the modules, a dedicated pipeline is used for each module to validate their production readiness, by:
 
@@ -154,15 +154,14 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
     * publishToTemplateSpec
 
 2. Now, Browse back to `yml` pipeline to initiate the trigger, location `.github/workflows`.
-![WorkFlow](./media/workflow.PNG)
- <img src="./media/workflow.PNG" alt="How to download repository" height="266" width="295">
+ <img src="./media/workflow.PNG" alt="WorkFlow" height="500" width="295">
 3. Select the workflow that need to be initialted and click on `Run workflow`. This will prompt with the input parameter.
     * Trigger from branch name.
     * Remove deployed module
     * The mode to handle the version increments [major|minor|patch|custom]
     * The version to enforce if [versionOption] is set to [custom]
 
-![Trigger](/media/trigger.PNG)
+![Trigger](./media/trigger.PNG)
 
 4. This will trigger below workflow jobs in sequence.
 
@@ -175,5 +174,5 @@ Any variable in the module yml starts with `env:` is referencing to `variables.m
      - Publish module
      - Publish module
 ```
-![Workflow Completion](/media/workflowcompletion.PNG)
+![Workflow Completion](./media/workflowcompletion.PNG)
 
