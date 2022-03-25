@@ -108,7 +108,7 @@ param disasterRecoveryConfig object = {}
   'CustomerManagedKeyUserLogs'
   'AutoScaleLogs'
 ])
-param diagnosticLogCategoriesToEnable array = [
+param logsToEnable array = [
   'ArchiveLogs'
   'OperationalLogs'
   'KafkaCoordinatorLogs'
@@ -122,7 +122,7 @@ param diagnosticLogCategoriesToEnable array = [
 @allowed([
   'AllMetrics'
 ])
-param diagnosticMetricsToEnable array = [
+param metricsToEnable array = [
   'AllMetrics'
 ]
 
@@ -141,11 +141,8 @@ var networkAcls_var = {
   ipRules: !empty(networkAcls) ? (length(networkAcls.ipRules) > 0 ? networkAcls.ipRules : null) : null
 }
 
-@description('Optional. The name of the diagnostic setting, if deployed.')
-param diagnosticSettingsName string = '${name}-diagnosticSettings'
-
-var diagnosticsLogs = [for category in diagnosticLogCategoriesToEnable: {
-  category: category
+var diagnosticsLogs = [for log in logsToEnable: {
+  category: log
   enabled: true
   retentionPolicy: {
     enabled: true
@@ -153,7 +150,7 @@ var diagnosticsLogs = [for category in diagnosticLogCategoriesToEnable: {
   }
 }]
 
-var diagnosticsMetrics = [for metric in diagnosticMetricsToEnable: {
+var diagnosticsMetrics = [for metric in metricsToEnable: {
   category: metric
   timeGrain: null
   enabled: true
@@ -210,7 +207,7 @@ resource eventHubNamespace_lock 'Microsoft.Authorization/locks@2017-04-01' = if 
 }
 
 resource eventHubNamespace_diagnosticSettings 'Microsoft.Insights/diagnosticsettings@2021-05-01-preview' = if ((!empty(diagnosticStorageAccountId)) || (!empty(diagnosticWorkspaceId)) || (!empty(diagnosticEventHubAuthorizationRuleId)) || (!empty(diagnosticEventHubName))) {
-  name: diagnosticSettingsName
+  name: '${eventHubNamespace.name}-diagnosticSettings'
   properties: {
     storageAccountId: !empty(diagnosticStorageAccountId) ? diagnosticStorageAccountId : null
     workspaceId: !empty(diagnosticWorkspaceId) ? diagnosticWorkspaceId : null
@@ -275,12 +272,15 @@ module eventHubNamespace_authorizationRules 'authorizationRules/deploy.bicep' = 
   }
 }]
 
-module eventHubNamespace_privateEndpoints '.bicep/nested_privateEndpoint.bicep' = [for (endpoint, index) in privateEndpoints: {
+module eventHubNamespace_privateEndpoints '.bicep/nested_privateEndpoint.bicep'= [for (endpoint, index) in privateEndpoints:{
   name: '${uniqueString(deployment().name, location)}-EvhbNamespace-PrivateEndpoint-${index}'
   params: {
     privateEndpointResourceId: eventHubNamespace.id
-    privateEndpointVnetLocation: (empty(privateEndpoints) ? 'dummy' : reference(split(endpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location)
-    privateEndpointObj: endpoint
+    privateEndpointVnetLocation: 'EastUS'
+    privateEndpointObj: {
+      service: 'namespace'
+      subnetResourceId: '/subscriptions/337b38b9-54ed-4cf7-aa4e-aa17afd0e128/resourceGroups/carml-poc/providers/Microsoft.Network/virtualNetworks/demo/subnets/subnet'
+    }
     tags: tags
   }
 }]
