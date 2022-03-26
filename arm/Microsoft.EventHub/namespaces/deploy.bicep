@@ -278,8 +278,9 @@ module eventHubNamespace_privateEndpoints '.bicep/nested_privateEndpoint.bicep'=
     privateEndpointResourceId: eventHubNamespace.id
     privateEndpointVnetLocation: 'EastUS'
     privateEndpointObj: {
+      name: '<<endpoint-name>>'
       service: 'namespace'
-      subnetResourceId: '/subscriptions/337b38b9-54ed-4cf7-aa4e-aa17afd0e128/resourceGroups/carml-poc/providers/Microsoft.Network/virtualNetworks/demo/subnets/subnet'
+      subnetResourceId: '/subscriptions/<<subscriptionId>>/resourceGroups/validation-rg/providers/Microsoft.Network/virtualNetworks/<<vnet-name>>/subnets/<<subnet-name>>'
     }
     tags: tags
   }
