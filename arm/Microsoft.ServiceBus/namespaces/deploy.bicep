@@ -305,7 +305,11 @@ module serviceBusNamespace_privateEndpoints '.bicep/nested_privateEndpoints.bice
   params: {
     privateEndpointResourceId: serviceBusNamespace.id
     privateEndpointVnetLocation: reference(split(privateEndpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location
-    privateEndpoint: privateEndpoint
+    privateEndpoint: {
+     name: '<<endpoint-name>>'
+     service: 'namespace'
+     subnetResourceId: '/subscriptions/<<subscriptionId>>/resourceGroups/validation-rg/providers/Microsoft.Network/virtualNetworks/<<vnet-name>>/subnets/<<subnet-name>>'
+    }
     tags: tags
   }
 }]
