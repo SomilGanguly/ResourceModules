@@ -175,12 +175,16 @@ resource workspace_diagnosticSettings 'Microsoft.Insights/diagnosticsettings@202
   scope: workspace
 }
 
-module workspace_privateEndpoints '.bicep/nested_privateEndpoint.bicep' = [for (privateEndpoint, index) in privateEndpoints: {
-  name: '${uniqueString(deployment().name, location)}-MLWorkspace-PrivateEndpoints-${index}'
+module workspace_privateEndpoints '.bicep/nested_privateEndpoint.bicep'= [for (endpoint, index) in privateEndpoints:{
+  name: '${uniqueString(deployment().name, location)}-MLWorkspace-PrivateEndpoint-${index}'
   params: {
     privateEndpointResourceId: workspace.id
-    privateEndpointVnetLocation: (empty(privateEndpoints) ? 'dummy' : reference(split(privateEndpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location)
-    privateEndpointObj: privateEndpoint
+    privateEndpointVnetLocation: (empty(privateEndpoints) ? 'dummy' : reference(split(endpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location)
+    privateEndpointObj: {
+      name: '<<endpoint-name>>'
+      service: 'amlworkspace'
+      subnetResourceId: '/subscriptions/<<subscriptionId>>/resourceGroups/validation-rg/providers/Microsoft.Network/virtualNetworks/<<vnet-name>>/subnets/<<subnet-name>>'
+    }
     tags: tags
   }
 }]
