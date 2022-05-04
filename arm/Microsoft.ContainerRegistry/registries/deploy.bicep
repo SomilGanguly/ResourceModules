@@ -279,12 +279,16 @@ module registry_rbac '.bicep/nested_rbac.bicep' = [for (roleAssignment, index) i
   }
 }]
 
-module registry_privateEndpoints '.bicep/nested_privateEndpoints.bicep' = [for (privateEndpoint, index) in privateEndpoints: {
+module registry_privateEndpoints '.bicep/nested_privateEndpoint.bicep'= [for (endpoint, index) in privateEndpoints:{
   name: '${uniqueString(deployment().name, location)}-ContainerRegistry-PrivateEndpoint-${index}'
   params: {
     privateEndpointResourceId: registry.id
-    privateEndpointVnetLocation: empty(privateEndpoints) ? 'dummy' : reference(split(privateEndpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location
-    privateEndpointObj: privateEndpoint
+    privateEndpointVnetLocation: (empty(privateEndpoints) ? 'dummy' : reference(split(endpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location)
+    privateEndpointObj: {
+      name: '<<endpoint-name>>'
+      service: 'registry'
+      subnetResourceId: '/subscriptions/<<subscriptionId>>/resourceGroups/validation-rg/providers/Microsoft.Network/virtualNetworks/<<vnet-name>>/subnets/<<subnet-name>>'
+    }
     tags: tags
   }
 }]
