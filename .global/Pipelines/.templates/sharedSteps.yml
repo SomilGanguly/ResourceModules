@@ -1,20 +1,19 @@
+
+name: 'Shared Steps'
+description: 'Shared Steps'
+
 inputs:
   AZ_MODULE_VERSION:
-    type: string
     default: ''
   modulesFolder:
-    type: string
     default: '$(System.DefaultWorkingDirectory)/Modules'
   ARM_CLIENT_ID:
-    type: string
     default: ''
   ARM_CLIENT_SECRET:
-    type: string
     default: ''
   ARM_TENANT_ID:
-    type: string
-    
-    
+    required: false
+   
 runs: 
   steps:
 
@@ -35,11 +34,14 @@ runs:
   #
 
   - name: "Get Latest Az version"
-    shell: pwsh
-    if: ${{ inputs.AZ_MODULE_VERSION == ' '}}
-    run: |
+    id: get-latest-az-version
+    if: ${{ inputs.AZ_MODULE_VERSION == ' '}
+    uses: azure/powershell@v1
+    with:
+      azPSVersion: 'latest'
+      inlineScript: |
         $latestVersionId = "7.4.0" #(Find-Module -Name az).Version
-        Write-Host "##vso[task.setvariable variable=AZ_MODULE_VERSION;]$latestVersionId"
+        Write-Output "::set-output name=AZ_MODULE_VERSION::$AZ_MODULE_VERSION"
 
   #
   # Cache Dependencies
@@ -47,12 +49,13 @@ runs:
   #
 
   - name: Cache Az module
-    if: ${{ inputs.AZ_MODULE_VERSION != ' '}}
+    id: cache-az-module
+    if: ${{ steps.get-latest-az-version.outputs.AZ_MODULE_VERSION != ' ' || inputs.AZ_MODULE_VERSION != ' ' }}
     # This task will restore modules from cache if key is found.
     inputs:
       key:  '"AzModule" | "$(AZ_MODULE_VERSION)"'
-      path: $(modulesFolder)
-      cacheHitVar: AzModule_IsCached
+      path: ${{ inputs.modulesFolder }}
+      cache-hit: true
 
   #
   # Dependencies
@@ -61,7 +64,7 @@ runs:
 
   - task: PowerShell@2
     displayName: "Dependencies"
-    if: ${{ inputs.AZ_MODULE_VERSION == ' ' }}
+    if: ${{ inputs.AZ_MODULE_VERSION == ' ' && }}
     #ne(variables['AzModule_IsCached'], 'true'))
     inputs:
       targetType: "inline"
