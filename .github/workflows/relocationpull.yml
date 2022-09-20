@@ -44,6 +44,10 @@ jobs:
         uses: ./.github/actions/templates/setEnvironmentVariables
         with:
           variablesPath: ${{ env.variablesPath }}
+          
+      - uses: actions/checkout@v3
+        with:
+           fetch-depth: 0
       #
       # Shared steps
       # Include shared steps from the 'shared.yml' file
