@@ -22,10 +22,10 @@ env:
   #
   branch: "relocationpullbranch"
 
-outputs:
-  newBranchName:
-    description: 'New branch name'
-    value: ${{ steps.branch-detection.outputs.newBranchName }}
+  #outputs:
+   # newBranchName:
+    #    description: 'New branch name'
+    #alue: ${{ steps.branch-detection.outputs.newBranchName }}
 
 jobs:
   job_relocation_pull:
@@ -37,7 +37,8 @@ jobs:
       # Include shared steps from the 'shared.yml' file
       # to not have to repeat them in every pipeline.
       #
-      - uses: SomilGanguly/ResourceModules/.global/Pipelines/.templates/sharedSteps.yml@users/siddhigupta/generic_internal_function
+      - name: Shared Step
+        uses: SomilGanguly/ResourceModules/.global/Pipelines/.templates/sharedSteps.yml@users/siddhigupta/generic_internal_function
         with:
           AZ_MODULE_VERSION: ${{ secret.AZ_MODULE_VERSION }}
           ARM_CLIENT_ID: ${{ secret.ARM_CLIENT_ID }}
@@ -71,7 +72,7 @@ jobs:
             Write-Output '::endgroup::'
 
       - name: Initialize
-        needs: BranchDetection
+        if: ${{ steps.branch-detection.outputs.newBranchName != "" }}
         uses: azure/powershell@v1
         with:
           azPSVersion: 'latest'
