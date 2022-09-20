@@ -125,10 +125,10 @@ jobs:
                 git status
 
                 Write-Verbose "git checkout...." -Verbose 
-                git checkout -b "${{ outputs.newBranchName }}"
+                git checkout -b "${{ steps.branch-detection.outputs.newBranchName }}"
 
                 Write-Verbose "git pull...." -Verbose 
-                git pull origin "${{ outputs.newBranchName }}"
+                git pull origin "${{ steps.branch-detection.outputs.newBranchName }}"
 
                 Write-Verbose "GIT ADD..." -Verbose 
                 git add "$(WorkloadFolderName)/" src/"${{ env.workloadFolderName }}"_Settings.json
@@ -140,7 +140,7 @@ jobs:
                 git commit -m "Update from Build"
 
                 Write-Verbose "Pushing the changes..." -Verbose 
-                git push origin "${{ outputs.newBranchName }}"
+                git push origin "${{ steps.branch-detection.outputs.newBranchName }}"
 
                 Write-Verbose "CHECK GIT STATUS..." -Verbose 
                 git status
