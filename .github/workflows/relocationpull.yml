@@ -5,8 +5,9 @@ on:
     branches: main
   
 env:
-  WorkloadFolderName: "InfraApps"
+  workloadFolderName: "InfraApps"
   skipComponentGovernanceDetection: true
+  modulesFolder: '$(System.DefaultWorkingDirectory)/Modules'
   
   #
   # Branch Name
@@ -18,27 +19,11 @@ env:
   # Default: automated
   #
   branch: "relocationpullbranch"
-  
-  #
-  # Commit Message
-  # During the Pull workflow, the changes are commited to the
-  # temporary branch, the message which is applied within the
-  # Git history can be changed as needed.
-  #
-  # Default: Automated commit
-  #
-  commit_message: "Automated commit"
 
-  #
-  # Pull Request
-  # The generated Pull Request for the Pull workflow can be
-  # modified to help indicate when changes we're merged in the
-  # Git history.
-  #
-  # Default: Automated state
-  #
-
-  pull_request: "Automated State"
+outputs:
+  newBranchName:
+    description: 'New branch name'
+    value: ${{ steps.branch-detection.outputs.newBranchName }}
 
 jobs:
   job_relocation_pull:
@@ -50,16 +35,19 @@ jobs:
       # Include shared steps from the 'shared.yml' file
       # to not have to repeat them in every pipeline.
       #
-     - uses: \.global\Pipelines/.templates/sharedSteps.yml
+      - uses: SomilGanguly/ResourceModules/.global/Pipelines/.templates/sharedSteps.yml@users/siddhigupta/generic_internal_function
         with:
           AZ_MODULE_VERSION: ${{ secret.AZ_MODULE_VERSION }}
           ARM_CLIENT_ID: ${{ secret.ARM_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secret.ARM_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secret.ARM_TENANT_ID }}
 
-      - name: "BranchDetection"
-        shell: pwsh
-        run: |
+      - name: BranchDetection
+        id: branch-detection
+        uses: azure/powershell@v1
+        with:
+          azPSVersion: 'latest'
+          inlineScript: |
             $oldbranchname='${{ env.branch }}'
             $branches=git branch -a
             foreach($branch in $branches){
@@ -74,15 +62,20 @@ jobs:
             }
             }
             $latestnumber=($emptyarray | measure -Maximum).Maximum + 1
-            $newbranchname= $oldbranchname+'_'+$latestnumber
-            write-host $newbranchname
-            "##vso[task.setvariable variable=newbranchname;isOutput=true]$newbranchname"
+            $newBranchName= $oldbranchname+'_'+$latestnumber
+            
+            # Output values to be accessed by next jobs
+            Write-Output "::set-output name=newBranchName::$newBranchName"
+            Write-Output '::endgroup::'
 
-      - name: "Initialize"
-        shell: pwsh
-        run: |
+      - name: Initialize
+        needs: BranchDetection
+        uses: azure/powershell@v1
+        with:
+          azPSVersion: 'latest'
+          inlineScript: |
             try{
-             $Env:PSModulePath = $Env:PSModulePath, '${{ modulesFolder)' -join [IO.Path]::PathSeparator
+            $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
             Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
             Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
             Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
@@ -101,7 +94,7 @@ jobs:
             Update-FolderStructureInJson -SubscriptionId $subscriptionid
             Script-Curation -SubscriptionId $subscriptionid
             }
-            modify-settingfilename -workloadname $(WorkloadFolderName)
+            modify-settingfilename -workloadname ${{ env.workloadFolderName }}
 
             #redirect error
                 $GIT_REDIRECT_STDERR = '2>&1'
@@ -117,13 +110,13 @@ jobs:
                 git status
 
                 Write-Verbose "git checkout...." -Verbose 
-                git checkout -b "$(BranchDetection.newbranchname)"
+                git checkout -b "${{ outputs.newBranchName }}"
 
                 Write-Verbose "git pull...." -Verbose 
-                git pull origin "$(BranchDetection.newbranchname)"
+                git pull origin "${{ outputs.newBranchName }}"
 
                 Write-Verbose "GIT ADD..." -Verbose 
-                git add "$(WorkloadFolderName)/" src/"$(WorkloadFolderName)"_Settings.json
+                git add "$(WorkloadFolderName)/" src/"${{ env.workloadFolderName }}"_Settings.json
 
                 Write-Verbose "GIT REMOVE..." -Verbose 
                 git rm src/Settings.json
@@ -132,7 +125,7 @@ jobs:
                 git commit -m "Update from Build"
 
                 Write-Verbose "Pushing the changes..." -Verbose 
-                git push origin "$(BranchDetection.newbranchname)"
+                git push origin "${{ outputs.newBranchName }}"
 
                 Write-Verbose "CHECK GIT STATUS..." -Verbose 
                 git status
