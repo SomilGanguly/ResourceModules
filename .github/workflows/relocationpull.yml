@@ -2,14 +2,22 @@ name: "Relocation - Pull"
 
 on:
   workflow_dispatch:
- # push:
- #   branches: 
- #   - users/siddhigupta/generic_internal_function
+  push:
+    branches: 
+    - users/siddhigupta/generic_internal_function
+  
+  paths:
+      - '.global/Pipelines/**'
+      - '.github/workflows/relocation-pull.yml'
+      - 'src/internal/Functions/**'
+      - 'src/**'
+      - './.github/actions/templates/**'
   
 env:
   workloadFolderName: "InfraApps"
   skipComponentGovernanceDetection: true
   modulesFolder: '$(System.DefaultWorkingDirectory)/Modules'
+  variablePath: '.global/Pipelines/.templates/var.yml'
   
   #
   # Branch Name
@@ -32,6 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     name: "Pull"
     steps:
+    
+      - name: Set environment variables
+        uses: ./.github/actions/templates/setEnvironmentVariables
+        with:
+          variablesPath: ${{ env.variablesPath }}
       #
       # Shared steps
       # Include shared steps from the 'shared.yml' file
