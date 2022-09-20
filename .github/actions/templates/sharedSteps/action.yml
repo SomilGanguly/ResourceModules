@@ -1,0 +1,105 @@
+
+name: 'Shared Steps'
+description: 'Shared Steps'
+
+inputs:
+  AZ_MODULE_VERSION:
+    default: ''
+  modulesFolder:
+    default: '$(System.DefaultWorkingDirectory)/Modules'
+  ARM_CLIENT_ID:
+    default: ''
+  ARM_CLIENT_SECRET:
+    default: ''
+  ARM_TENANT_ID:
+    required: false
+   
+runs: 
+  steps:
+
+  #
+  # Checkout
+  # Checks-out the repository
+  #
+
+- uses: actions/checkout@v3
+  with:
+    fetch-depth: 0
+    persist-credentials: true
+
+  #
+  # Get Latest Az version
+  # Query PowerShell Gallery for the latest Az version
+  # to be used as cache key if no version is specified
+  #
+
+  - name: "Get Latest Az version"
+    id: get-latest-az-version
+    if: ${{ inputs.AZ_MODULE_VERSION == ' '}
+    uses: azure/powershell@v1
+    with:
+      azPSVersion: 'latest'
+      inlineScript: |
+        $latestVersionId = "7.4.0" #(Find-Module -Name az).Version
+        Write-Output "::set-output name=AZ_MODULE_VERSION::$AZ_MODULE_VERSION"
+
+  #
+  # Cache Dependencies
+  # Cache dependencies if version has not changed
+  #
+
+  - name: Cache Az module
+    id: cache-az-module
+    if: ${{ steps.get-latest-az-version.outputs.AZ_MODULE_VERSION != ' ' || inputs.AZ_MODULE_VERSION != ' ' }}
+    # This task will restore modules from cache if key is found.
+    inputs:
+      key:  '"AzModule" | "$(AZ_MODULE_VERSION)"'
+      path: ${{ inputs.modulesFolder }}
+      cache-hit: true
+
+  #
+  # Dependencies
+  # Install required runtime modules
+  #
+
+  - name: Dependencies
+    if: ${{ inputs.AZ_MODULE_VERSION == ' ' && }}
+    #ne(variables['AzModule_IsCached'], 'true'))
+    uses: azure/powershell@v1
+    with:
+      azPSVersion: 'latest'
+      inlineScript: |
+        if(-not (Test-Path -Path '${{ env.modulesFolder }}')) {
+          mkdir '${{ env.modulesFolder }}'
+        }
+        $params = @{
+          Name            = 'Az'
+          Path            = '${{ env.modulesFolder }}'
+          Force           = $true
+        }
+        if('${{ env.AZ_MODULE_VERSION }}') {
+          $params.RequiredVersion = '${{ env.AZ_MODULE_VERSION }}'
+        }
+        Save-Module @params
+
+  #
+  # Connect
+  # Authenticate Azure context
+  # If no value is set for ARM_CLIENT_ID connect will try
+  # to use a Managed Identity. 
+  #
+
+  - name: Connect
+    uses: azure/powershell@v1
+    with:
+      azPSVersion: 'latest'
+      inlineScript: |
+        $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator  
+        if('${{ secrets.ARM_CLIENT_ID }}') {
+          $clientId='${{ secrets.ARM_CLIENT_ID }}'
+          $clientSecret='${{ secrets.ARM_CLIENT_SECRET }}'
+          $credential = New-Object PSCredential -ArgumentList $clientId, (ConvertTo-SecureString -String $clientSecret -AsPlainText -Force)
+          Connect-AzAccount -TenantId ${{ env.ARM_TENANT_ID }} -ServicePrincipal -Credential $credential 
+        } else {        
+          Connect-AzAccount -TenantId ${{ env.ARM_TENANT_ID }} -Identity
+        }
