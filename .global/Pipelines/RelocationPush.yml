@@ -1,0 +1,25 @@
+trigger: none
+variables:
+  - name: branch
+    value: $(Build.SourceBranchName)
+
+stages:
+################################DO NOT DELETE THIS LINE################################################################
+
+- stage: carml_rakshana_poc_Microsoft_Storage_storageAccounts
+
+  condition: succeededOrFailed()
+  jobs:
+  - template: "/Infra_Apps/ismalik-internalAccess/carml-rakshana-poc/Microsoft.Storage_storageAccounts/pipelines/Microsoft.Storage_storageAccounts.yml"
+- stage: "DeploymentStateUpdate_carml_rakshana_poc_Microsoft_Storage_storageAccounts"
+  condition: Failed()
+  jobs:
+  - job: "DeploymentStateUpdate_carml_rakshana_poc_Microsoft_Storage_storageAccounts"
+    steps:
+    - checkout: self
+      clean: true
+      persistCredentials: true
+    - powershell: |
+          Import-Module .\src\internal\functions\Get-DeploymentStateUpdate.ps1 -Force
+          Get-DeploymentStateUpdate -branchName $(branch) -location "/Infra_Apps/ismalik-internalAccess/carml-rakshana-poc/Microsoft.Storage_storageAccounts/pipelines/Microsoft.Storage_storageAccounts.yml"
+      displayName: 'DeploymentStateUpdate'

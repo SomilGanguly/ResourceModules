@@ -1,0 +1,27 @@
+{
+  "RelocationSettings": {
+    "IncludeWorkloadSubscriptionId": [
+      "6e74621a-b3ca-4233-b10a-19367338e576"
+    ],
+    "SkipResourceType": [
+      "microsoft.alertsmanagement/smartDetectorAlertRules",
+      "Microsoft.PowerPlatform/accounts",
+      "Microsoft.PowerPlatform/enterprisePolicies",
+      "microsoft.visualstudio/account",
+      "Microsoft.VSOnline/plans",
+      "Microsoft.Resources/resourceGroups"   
+    ],
+    "SkipResourceGroup": [
+      "bot",
+      "NetworkWatcherRG",
+      "powershell"
+    ],
+    "ValidationSubscriptionId": "6e74621a-b3ca-4233-b10a-19367338e576",    
+    "LogPath": "src/ExceptionsLog.json",
+    "WorkloadName": "Infra_Apps",
+    "TargetLocation": "canadaeast",
+    "DeploymentSequence": [
+      
+    ]
+  }
+}

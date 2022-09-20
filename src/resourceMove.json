@@ -1,0 +1,10 @@
+{
+  "resourcesToMove": [
+    {
+      "resourceID": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxxx-xxxxxxxxx/resourceGroups/validation-rg/providers/Microsoft.Network/networkSecurityGroups/carmlpocvnet115-default-nsg-eastus"
+    }
+  ],
+  "sourceSubscriptionId": "xxxxxxxx-xxxx-xxxx-xxxxx-xxxxxxxxx",
+  "targetSubscriptionId": "xxxxxxxx-xxxx-xxxx-xxxxx-xxxxxxxxx",
+  "destinationRG": "destination-rg" 
+}

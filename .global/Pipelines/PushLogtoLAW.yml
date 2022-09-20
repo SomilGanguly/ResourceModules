@@ -1,0 +1,70 @@
+---
+name: "PushLogtoLAW"
+trigger: none
+
+variables:
+  - template: .templates/vars.yml
+  # Keyvault variables
+  - name: KeyVaultName
+    value: 'keyvaultrelocationtest01'
+  - name: SecretName
+    value: 'lawsecrete'
+  - name: WorkSpaceId
+    value: '4e405825-ffef-4490-895b-b771403fc2a4'
+  # Logic-related variables
+  - name: skipComponentGovernanceDetection
+    value: true
+  - name: branch
+    value: $(Build.SourceBranchName)
+
+##---------------------------------------------##
+## TEMPLATE LOGIC                              ##
+##---------------------------------------------##
+
+jobs:
+
+  - job: PushLogtoLAW
+    # Pipeline-related parameters
+    displayName: "PushLogtoLAW"
+    pool:
+      vmImage: "ubuntu-latest"
+      #name: "MyPool"
+
+    steps:
+      - template: .templates/sharedSteps.yml
+        parameters:
+          ARM_CLIENT_ID: ${{ variables['ARM_CLIENT_ID'] }}
+          ARM_CLIENT_SECRET: ${{ variables['ARM_CLIENT_SECRET'] }}
+          ARM_TENANT_ID: ${{ variables['ARM_TENANT_ID'] }}
+
+      - task: PowerShell@2
+        displayName: "PushLogtoLAW"
+        inputs:
+          targetType: "inline"
+          script: |
+            try{
+            $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\functions\Create-CustomLogLAW.ps1 -Force
+            Create-CustomLogLAW -CustomerId $(WorkSpaceId) -SecretName $(SecretName) -KeyVaultName $(KeyVaultName)
+            }
+            catch{
+              $statePath = $pwd
+              Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+              $scriptPath= ($MyInvocation.MyCommand).Definition
+              $scriptName= "PushLogtoLAW"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+              $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+              foreach($locationfile in $settinglocation){
+              if($locationfile -match "Settings.json")
+              {
+              $settingfile=get-content -path "$statePath/src/$locationfile"
+              $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+              }
+              }
+              $Result = ""
+              if($Error.Count){ $Result = "Failed"}
+              Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+              $LASTEXITCODE = 1
+              write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+              
+              }

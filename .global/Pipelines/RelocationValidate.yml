@@ -1,0 +1,175 @@
+---
+name: "Validate"
+trigger: none
+
+
+variables:
+  - template: .templates/vars.yml 
+  - name: WorkloadFolderName
+    value: "Infra_Apps"   
+  - name: skipComponentGovernanceDetection
+    value: true
+  - name: branch
+    value: $(Build.SourceBranchName)
+  - name: validationServiceConnection
+    value: "RelocationAutomation_SC"
+    #
+    # RequireWhatIfAnalysis should be set to true to check the 
+    # working of Relocation-Push pipeline on the validation subscription.
+    #
+  - name: RequireWhatIfAnalysis
+    value: true
+  - name: RequireValidation
+    value: false
+
+jobs:
+
+  - job: Validate
+    timeoutInMinutes: 180
+    displayName: "Validate"
+    pool:
+      vmImage: "ubuntu-latest"
+      #name: "MyPool"
+      
+
+
+    steps:
+
+      - template: .templates/sharedSteps.yml
+        parameters:
+          ARM_CLIENT_ID: ${{ variables['ARM_CLIENT_ID'] }}
+          ARM_CLIENT_SECRET: ${{ variables['ARM_CLIENT_SECRET'] }}
+          ARM_TENANT_ID: ${{ variables['ARM_TENANT_ID'] }}
+      #
+      # Initialize
+      # Generate new state data
+      #
+      - task: PowerShell@2
+        condition: and(succeeded(), eq(variables.RequireValidation, 'true'))
+        displayName: "Validate"
+        inputs:
+          targetType: "inline"
+          script: |
+            try{
+            $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Install-Module Pester -Force -ErrorAction Stop -RequiredVersion 5.1.1
+            Import-Module Pester -Force
+            ##Initiating pester testing on all the pulled files on every level (Module folder,Parameter folder, Pipeline folder, Deployment file and Parameter file)
+            Invoke-Pester -Path '$(System.DefaultWorkingDirectory)/.global/Pipelines/Scripts/global.module.tests.ps1' `
+            -OutputFile '$(System.DefaultWorkingDirectory)/module-testResults.xml' `
+            -OutputFormat NUnitXml `
+            -Verbose
+               }
+              catch{
+                $statePath = $pwd
+                Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+                $scriptPath= ($MyInvocation.MyCommand).Definition
+                $scriptName= "RelocationValidate"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+                $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+                foreach($locationfile in $settinglocation){
+                if($locationfile -match "_Settings.json")
+                {
+                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+                }
+                }
+                $Result = ""
+                if($Error.Count){ $Result = "Failed"}
+                Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+                $LASTEXITCODE = 1
+                write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+                
+                }
+          errorActionPreference: continue
+      #Publishing pester test results
+      - task: PublishTestResults@2
+        displayName: Publish Test Results
+        inputs:
+          testRunTitle: "Module Tests"
+          testResultsFormat: NUnit
+          testResultsFiles: module-testResults.xml
+          failTaskOnFailedTests: false
+        continueOnError: false
+        condition: succeededOrFailed()
+      # Initiating whatIf analysis
+      - task: AzurePowerShell@5
+        condition: and(succeeded(), eq(variables.RequireWhatIfAnalysis, 'true'))
+        displayName: 'WhatIfAnalysis'
+        inputs:
+          azureSubscription: '$(validationServiceConnection)'
+          ScriptType: InlineScript
+          Inline: |
+           try{
+            $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Install-Module powershell-yaml -Force 
+            $settingfile=get-content -path .\src\$(WorkloadFolderName)_Settings.json
+            $ValidationSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.ValidationSubscriptionId
+            $allAzContext = Get-AzContext -ListAvailable
+                if($allAzContext.Subscription.Id -contains $ValidationSubscriptionId)
+                {
+                    Write-Host "The context has permission on the subscription"
+                    Select-AzSubscription -SubscriptionId $ValidationSubscriptionId
+
+                }
+                else{
+                    Write-Host "The context doesnot permission on the subscription"
+                    exit
+                }
+            .global/Pipelines/Scripts/whatif.ps1
+            #redirect error
+            $GIT_REDIRECT_STDERR = '2>&1'
+
+            Write-Verbose "Setting git config...." -Verbose 
+
+            git config --global user.email "azuredevops@microsoft.com"
+            git config --global user.name "Azure DevOps"             
+
+            git branch
+
+            Write-Verbose "CHECK GIT STATUS..." -Verbose 
+            git status
+
+            Write-Verbose "git checkout...." -Verbose 
+            git checkout -b $(branch)
+
+            Write-Verbose "git pull...." -Verbose 
+            git pull origin $(branch)
+
+            Write-Verbose "GIT ADD..." -Verbose 
+            git add "$(WorkloadFolderName)/"
+
+            Write-Verbose "Commiting the changes..." -Verbose 
+            git commit -m "Update from Build"
+
+            Write-Verbose "Pushing the changes..." -Verbose 
+            git push origin $(branch)
+
+            Write-Verbose "CHECK GIT STATUS..." -Verbose 
+            git status
+             }
+              catch{
+                $statePath = $pwd
+                Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+                $scriptPath= ($MyInvocation.MyCommand).Definition
+                $scriptName= "ValidationPipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+                $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+                foreach($locationfile in $settinglocation){
+                if($locationfile -match "_Settings.json")
+                {
+                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+                }
+                }
+                $Result = ""
+                if($Error.Count){ $Result = "Failed"}
+                Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+                $LASTEXITCODE = 1
+                write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+                
+                }
+          errorActionPreference: continue
+          azurePowerShellVersion: LatestVersion
+
+

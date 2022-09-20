@@ -1,0 +1,178 @@
+---
+name: "YmlCuraterPipeline"
+
+#
+# Triggers
+# Automated triggers are configured via Branch Policies
+# within Azure Repos. It's also recommended to manually
+# disable CI triggers with overrides.
+#
+
+trigger: none
+
+
+variables:
+  
+  #
+  # Shared variables
+  # Include shared variables from the 'vars.yml' file
+  # to not have to repeat them in every pipeline.
+  #
+
+  - template: .templates/vars.yml
+
+
+  - name: WorkloadFolderName
+    value: "Infra_Apps" 
+  - name: skipComponentGovernanceDetection
+    value: true
+  - name: serviceConnection
+    value: "RelocationAutomation_SC"
+  #
+  # Branch Name
+  # As part of the Pull workflow we check a temporary branch
+  # this branch was previously know as system, this value can
+  # be changed if this name is already reserved for other systems
+  # within the repository.
+  #
+  # Default: automated
+  #
+
+  - name: branch
+    value: $(Build.SourceBranchName)
+
+  #
+  # Commit Message
+  # During the Pull workflow, the changes are commited to the
+  # temporary branch, the message which is applied within the
+  # Git history can be changed as needed.
+  #
+  # Default: Automated commit
+  #
+
+  - name: commit_message
+    value: "Automated commit"
+
+  #
+  # Pull Request
+  # The generated Pull Request for the Pull workflow can be
+  # modified to help indicate when changes we're merged in the
+  # Git history.
+  #
+  # Default: Automated state
+  #
+
+  - name: YmlCuraterPipeline_request
+    value: "Automated State"
+
+jobs:
+
+  - job: YmlCuraterPipeline
+
+    #
+    # Pull
+    #
+
+    displayName: "YmlCuraterPipeline"
+    pool:
+      vmImage: "ubuntu-latest"
+      #name: "MyPool"
+
+
+    steps:
+
+      #
+      # Shared steps
+      # Include shared steps from the 'shared.yml' file
+      # to not have to repeat them in every pipeline.
+      #
+      
+      - template: .templates/sharedSteps.yml
+        parameters:
+          ARM_CLIENT_ID: ${{ variables['ARM_CLIENT_ID'] }}
+          ARM_CLIENT_SECRET: ${{ variables['ARM_CLIENT_SECRET'] }}
+          ARM_TENANT_ID: ${{ variables['ARM_TENANT_ID'] }}
+
+      - task: Bash@3
+        displayName: "Configure"
+        inputs:
+          targetType: "inline"
+          script: |
+            git config user.name "Azure DevOps"
+            git config user.email "azuredevops@microsoft.com"
+
+      #
+      # Initialize
+      # Generate new state data
+      #
+
+      - task: PowerShell@2
+        displayName: "Yml Curation"
+        inputs:
+          targetType: "inline"
+          script: |
+            try{
+            $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\functions\Create-YmlFileObject.ps1 -Force
+            Import-Module .\src\internal\functions\Curated-YmlFile.ps1 -Force
+            Install-Module powershell-yaml -Force
+            
+            $settingfile=get-content -path .\src\$(WorkloadFolderName)_Settings.json
+            $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
+            foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
+            {
+            Curated-YmlFile -SubscriptionId $subscriptionid -serviceConnection  "$(serviceConnection)" -branchName "$(branch)"
+            }
+            
+            #redirect error
+                $GIT_REDIRECT_STDERR = '2>&1'
+
+                Write-Verbose "Setting git config...." -Verbose 
+
+                git config --global user.email "azuredevops@microsoft.com"
+                git config --global user.name "Azure DevOps"             
+
+                git branch
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+        
+                Write-Verbose "git checkout...." -Verbose 
+                git checkout -b $(branch)
+
+                Write-Verbose "git pull...." -Verbose 
+                git pull origin $(branch)
+
+                Write-Verbose "GIT ADD..." -Verbose 
+                git add "$(WorkloadFolderName)/"
+
+                Write-Verbose "Commiting the changes..." -Verbose 
+                git commit -m "Update from Build"
+
+                Write-Verbose "Pushing the changes..." -Verbose 
+                git push origin $(branch)
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+                 }
+                  catch{
+                    $statePath = $pwd
+                    Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+                    $scriptPath= ($MyInvocation.MyCommand).Definition
+                    $scriptName= "YmlCuraterPipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+                    $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+                    foreach($locationfile in $settinglocation){
+                    if($locationfile -match "_Settings.json")
+                    {
+                    $settingfile=get-content -path "$statePath/src/$locationfile"
+                    $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+                    }
+                    }
+                    $Result = ""
+                    if($Error.Count){ $Result = "Failed"}
+                    Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+                    $LASTEXITCODE = 1
+                    write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+                    
+                    }

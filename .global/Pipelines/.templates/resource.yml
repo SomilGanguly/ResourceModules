@@ -1,0 +1,65 @@
+
+name: $(moduleName)
+
+parameters:
+- name: versioningOption
+  displayName: Default publish version
+  type: string
+  default: patch
+  values:
+  - patch
+  - minor
+  - major
+- name: uiCustomVersion
+  displayName: -OR- Custom publish version
+  type: string
+  default: '-'
+- name: InitiatePipeline
+  displayName: InitiatePipeline
+  type: string
+  values:
+  - True
+  - False
+
+
+variables:
+- template: global.variables.yml
+
+
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+    - master 
+  paths:
+    include:
+    - /*
+    exclude:
+    - .global/*
+    - src/*
+
+stages: 
+
+- stage: Trigger
+  condition: eq('${{ parameters.InitiatePipeline }}', 'True')
+  jobs:
+  - job: TriggerStateJob
+    steps:
+      - task: PowerShell@2
+        displayName: "TriggerStateTask"
+        inputs:
+          targetType: "inline"
+          script: |
+            $TriggerState= $true
+            Write-Host $TriggerState
+
+
+
+- stage: Deployment
+  jobs:
+    - template: /.global/Pipelines/.templates/pipeline.jobs.deploy.yml
+      parameters:
+        deploymentBlocks:
+        - path: $(parametersPath)/$(parameterFileName)

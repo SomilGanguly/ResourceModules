@@ -1,0 +1,55 @@
+name: "MoveResourcesAcrossSubscriptions&RG"
+
+trigger: none
+
+variables:
+- name: ServiceConnectionName
+  value: ''
+- name: branch
+  value: $(Build.SourceBranchName)
+
+jobs:
+  - job: MoveResources
+    displayName: 'Move resources'
+    pool:
+      vmImage: ubuntu-latest
+    variables:
+      jsonPath: '$(System.DefaultWorkingDirectory)\src\resourceMove.json'
+    steps:
+    - checkout: self
+      clean: true
+      persistCredentials: true
+    - task: AzurePowerShell@5
+      inputs:
+        azureSubscription: '$(ServiceConnectionName)'
+        scriptType: inlineScript
+        inline: |
+          try
+          {
+            Import-Module .\.global\AdditionalTools\moveResources.ps1 -Force
+            moveResources -path $(jsonPath)
+          }
+          catch
+          {
+            $statePath = $pwd
+            Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force
+            $scriptPath= ($MyInvocation.MyCommand).Definition
+            $scriptName= "MoveAcrossSubscription"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+            $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+            foreach($locationfile in $settinglocation){
+              if($locationfile -match "Settings.json")
+              {
+                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath
+              }
+            }
+            $Result = ""
+            if($Error.Count){ $Result = "Failed"}
+            $statePath = $pwd
+            Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+            $LASTEXITCODE = 1
+            write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+          }
+        errorActionPreference: stop
+        failOnStandardError: true
+        azurePowerShellVersion: latestVersion

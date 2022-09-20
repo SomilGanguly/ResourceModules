@@ -1,0 +1,106 @@
+parameters:
+
+  - name: AZ_MODULE_VERSION
+    type: string
+    default: ''
+
+  - name: modulesFolder
+    type: string
+    default: '$(System.DefaultWorkingDirectory)/Modules'
+
+  - name: ARM_CLIENT_ID
+    type: string
+    default: ''
+
+  - name: ARM_CLIENT_SECRET
+    type: string
+    default: ''
+
+  - name: ARM_TENANT_ID
+    type: string
+
+steps:
+
+  #
+  # Checkout
+  # Checks-out the repository
+  #
+
+  - checkout: self
+    fetchDepth: 0
+    persistCredentials: true
+
+  #
+  # Get Latest Az version
+  # Query PowerShell Gallery for the latest Az version
+  # to be used as cache key if no version is specified
+  #
+
+  - task: PowerShell@2
+    displayName: "Get Latest Az version"
+    condition: eq(variables['AZ_MODULE_VERSION'], '')
+    inputs:
+      targetType: "inline"
+      script: |
+        $latestVersionId = "7.4.0" #(Find-Module -Name az).Version
+        Write-Host "##vso[task.setvariable variable=AZ_MODULE_VERSION;]$latestVersionId"
+
+  #
+  # Cache Dependencies
+  # Cache dependencies if version has not changed
+  #
+
+  - task: Cache@2
+    displayName: Cache Az module
+    condition: ne(variables['AZ_MODULE_VERSION'], '')
+    # This task will restore modules from cache if key is found.
+    inputs:
+      key:  '"AzModule" | "$(AZ_MODULE_VERSION)"'
+      path: $(modulesFolder)
+      cacheHitVar: AzModule_IsCached
+
+  #
+  # Dependencies
+  # Install required runtime modules
+  #
+
+  - task: PowerShell@2
+    displayName: "Dependencies"
+    condition: or(eq(variables['AZ_MODULE_VERSION'], ''), ne(variables['AzModule_IsCached'], 'true'))
+    inputs:
+      targetType: "inline"
+      script: |
+        if(-not (Test-Path -Path '$(modulesFolder)')) {
+          mkdir '$(modulesFolder)'
+        }
+        $params = @{
+          Name            = 'Az'
+          Path            = '$(modulesFolder)'
+          Force           = $true
+        }
+        if('$(AZ_MODULE_VERSION)') {
+          $params.RequiredVersion = '$(AZ_MODULE_VERSION)'
+        }
+        Save-Module @params
+
+  #
+  # Connect
+  # Authenticate Azure context
+  # If no value is set for ARM_CLIENT_ID connect will try
+  # to use a Managed Identity. 
+  #
+
+  - task: PowerShell@2
+    displayName: "Connect"
+    inputs:
+      targetType: "inline"
+      script: |
+        $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator  
+        if('$(ARM_CLIENT_ID)') {
+          $clientId='$(ARM_CLIENT_ID)'
+          $clientSecret='$(ARM_CLIENT_SECRET)'
+          $credential = New-Object PSCredential -ArgumentList $clientId, (ConvertTo-SecureString -String $clientSecret -AsPlainText -Force)
+          Connect-AzAccount -TenantId $(ARM_TENANT_ID) -ServicePrincipal -Credential $credential 
+        } else {        
+          Connect-AzAccount -TenantId $(ARM_TENANT_ID) -Identity
+        }

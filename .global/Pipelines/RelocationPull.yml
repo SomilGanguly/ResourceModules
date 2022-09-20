@@ -1,0 +1,200 @@
+---
+name: "Relocation - Pull"
+
+#
+# Triggers
+# Automated triggers are configured via Branch Policies
+# within Azure Repos. It's also recommended to manually
+# disable CI triggers with overrides.
+#
+
+trigger: none
+
+
+variables:
+  
+  #
+  # Shared variables
+  # Include shared variables from the 'vars.yml' file
+  # to not have to repeat them in every pipeline.
+  #
+
+  - template: .templates/vars.yml
+
+
+  - name: WorkloadFolderName
+    value: "Infra_Apps" 
+  - name: skipComponentGovernanceDetection
+    value: true
+
+  #
+  # Branch Name
+  # As part of the Pull workflow we check a temporary branch
+  # this branch was previously know as system, this value can
+  # be changed if this name is already reserved for other systems
+  # within the repository.
+  #
+  # Default: automated
+  #
+
+  - name: branch
+    value: "relocationpullbranch"
+
+  #
+  # Commit Message
+  # During the Pull workflow, the changes are commited to the
+  # temporary branch, the message which is applied within the
+  # Git history can be changed as needed.
+  #
+  # Default: Automated commit
+  #
+
+  - name: commit_message
+    value: "Automated commit"
+
+  #
+  # Pull Request
+  # The generated Pull Request for the Pull workflow can be
+  # modified to help indicate when changes we're merged in the
+  # Git history.
+  #
+  # Default: Automated state
+  #
+
+  - name: pull_request
+    value: "Automated State"
+
+jobs:
+
+  - job: pull
+
+    #
+    # Pull
+    #
+
+    displayName: "Pull"
+    pool:
+      vmImage: "ubuntu-latest"
+      #name: "MyPool"
+
+    steps:
+
+      #
+      # Shared steps
+      # Include shared steps from the 'shared.yml' file
+      # to not have to repeat them in every pipeline.
+      #
+      
+      - template: .templates/sharedSteps.yml
+        parameters:
+          ARM_CLIENT_ID: ${{ variables['ARM_CLIENT_ID'] }}
+          ARM_CLIENT_SECRET: ${{ variables['ARM_CLIENT_SECRET'] }}
+          ARM_TENANT_ID: ${{ variables['ARM_TENANT_ID'] }}
+
+      - task: PowerShell@2
+        displayName: "BranchDetection"
+        name: "BranchDetection"
+        inputs:
+          targetType: "inline"
+          script: |
+            $oldbranchname='$(branch)'
+            $branches=git branch -a
+            foreach($branch in $branches){
+            $modifiedbranch=$branch.Replace('remotes/origin/','')
+            if($modifiedbranch -match $oldbranchname+'_'){
+            $emptyarray=@()
+            $numberonly=$modifiedbranch.Substring($modifiedbranch.IndexOf('_')+1)
+            $emptyarray+=$numberonly
+            }
+            else{
+            $emptyarray+=0
+            }
+            }
+            $latestnumber=($emptyarray | measure -Maximum).Maximum + 1
+            $newbranchname= $oldbranchname+'_'+$latestnumber
+            write-host $newbranchname
+            "##vso[task.setvariable variable=newbranchname;isOutput=true]$newbranchname"
+
+      - task: PowerShell@2
+        displayName: "Initialize"
+        inputs:
+          targetType: "inline"
+          script: |
+            try{
+             $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
+            Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
+            Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
+            Import-Module .\src\internal\functions\Dependencycopy.ps1 -Force
+            Import-Module .\src\internal\functions\Script-Curation.ps1 -Force
+            Import-Module .\src\internal\functions\Update-FolderStructureInJson.ps1 -Force
+            Import-Module .\src\internal\functions\Modify-SettingFileName.ps1 -Force          
+            Import-Module .\src\Functions\Get-Relocationpull.ps1 -Force
+            Import-Module .\src\internal\functions\Convert-ARMToBicepParameters.ps1 -Force
+            
+            $settingfile=get-content -path .\src\Settings.json
+            $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
+            foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
+            {
+            Get-Relocationpull -SubscriptionId $subscriptionid
+            Update-FolderStructureInJson -SubscriptionId $subscriptionid
+            Script-Curation -SubscriptionId $subscriptionid
+            }
+            modify-settingfilename -workloadname $(WorkloadFolderName)
+
+            #redirect error
+                $GIT_REDIRECT_STDERR = '2>&1'
+
+                Write-Verbose "Setting git config...." -Verbose 
+
+                git config --global user.email "azuredevops@microsoft.com"
+                git config --global user.name "Azure DevOps"             
+
+                git branch
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+
+                Write-Verbose "git checkout...." -Verbose 
+                git checkout -b "$(BranchDetection.newbranchname)"
+
+                Write-Verbose "git pull...." -Verbose 
+                git pull origin "$(BranchDetection.newbranchname)"
+
+                Write-Verbose "GIT ADD..." -Verbose 
+                git add "$(WorkloadFolderName)/" src/"$(WorkloadFolderName)"_Settings.json
+
+                Write-Verbose "GIT REMOVE..." -Verbose 
+                git rm src/Settings.json
+
+                Write-Verbose "Commiting the changes..." -Verbose 
+                git commit -m "Update from Build"
+
+                Write-Verbose "Pushing the changes..." -Verbose 
+                git push origin "$(BranchDetection.newbranchname)"
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+                }
+                catch{
+                  $statePath = $pwd
+                  $branchName = "main"
+                  Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+                  $scriptPath= ($MyInvocation.MyCommand).Definition
+                  $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+                  $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+                  foreach($locationfile in $settinglocation){
+                  if($locationfile -match "Settings.json")
+                  {
+                  $settingfile=get-content -path "$statePath/src/$locationfile"
+                  $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+                  }
+                  }
+                  $Result = ""
+                  if($Error.Count){ $Result = "Failed"}
+                  Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $branchName
+                  $LASTEXITCODE = 1
+                  write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+                  
+                  }

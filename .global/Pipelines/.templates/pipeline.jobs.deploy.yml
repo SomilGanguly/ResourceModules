@@ -1,0 +1,208 @@
+parameters:
+  
+  # Pipeline-related parameters
+  serviceConnection: ''
+  poolName: ''
+  vmImage: ''
+  defaultJobTimeoutInMinutes: 120
+  checkoutRepositories: ''
+  dependsOn: []
+  # Logic-related parameters
+  removeDeployment: false
+  moduleName: ''
+  modulePath: ''
+  parametersPath: ''
+  deployfile: ''
+  modulesPath: ''
+  deploymentBlocks: ''
+  parametersRepository: '$(Build.Repository.Name)'
+  location: ''
+  resourceGroupName: '$(resourceGroupName)'
+  subscriptionId: "$(subscriptionId)"
+  managementGroupId: '$(managementGroupId)'
+  # Azure PowerShell Version parameters
+  azurePowerShellVersion: '$(azurePowerShellVersion)'
+  preferredAzurePowerShellVersion: '$(preferredAzurePowerShellVersion)'
+  # Pipeline Orchestrated (Key Vault) Parameters
+  pokv: false # Switch to enable temporary POKV deployment
+  modulesRepository: ''
+  keyVaultName: '$(keyVaultName)'
+  artifactName: '$(artifactName)'  
+  environment: '$(environment)'
+  secretsFilter: '$(secretsFilter)'
+  templateFile: '$(templateFile)' 
+  parametersFile: '$(parametersFile)'
+  overrideParameters: '$(overrideParameters)'
+  scriptArguments: '$(scriptArguments)'
+  templateFunctionsPath: ''
+
+##---------------------------------------------##
+## TEMPLATE LOGIC                              ##
+##---------------------------------------------##
+
+jobs:
+- ${{ if eq(parameters.pokv, 'false') }}:
+  - ${{ each deploymentBlock in parameters.deploymentBlocks }}:
+    - job: ${{ deploymentBlock.jobName }}
+  
+      ${{ if ne( deploymentBlock.displayName, '') }}:
+        displayName: ${{ deploymentBlock.displayName }}
+      ${{ if eq( deploymentBlock.displayName, '') }}:
+        displayName: Deploy with [${{ replace( deploymentBlock.path, '$(parametersPath)', '') }}]
+      timeoutInMinutes: ${{ parameters.defaultJobTimeoutInMinutes }}
+      ${{ if ne( parameters.dependsOn, '') }}:
+        dependsOn: ${{ parameters.dependsOn }}
+      pool:
+        ${{ if ne(parameters.vmImage, '') }}:
+          vmImage: ${{ parameters.vmImage }}
+        ${{ if ne(parameters.poolName, '') }}:
+          name: ${{ parameters.poolName }}
+
+      steps:
+
+      # [Checkout Repositories] task(s)
+      #--------------------------------
+      - checkout: self
+      - ${{ if ne(parameters.checkoutRepositories, '') }}:
+        - ${{ each checkoutRepository in parameters.checkoutRepositories }}:
+          - checkout: ${{ checkoutRepository }}
+            fetchDepth: 1  # the depth of commits to ask Git to fetch; if not set defaults to no limit
+            path: 's/${{ checkoutRepository }}'
+            
+      # [Deployment] task(s)
+      #--------------------------------
+      - task: AzurePowerShell@5
+        displayName: 'Deploy [${{ parameters.moduleName }}] via connection [${{ parameters.serviceConnection }}]'
+        inputs:
+          azureSubscription:  ${{ parameters.serviceConnection }}
+          azurePowerShellVersion: ${{ parameters.azurePowerShellVersion }}
+          preferredAzurePowerShellVersion: ${{ parameters.preferredAzurePowerShellVersion }}
+          pwsh: true
+          ScriptType: InlineScript
+          inline: |
+            # ---------------------------- #
+            # HANDLE MULTI-REPO INVOCATION #
+            # ---------------------------- #
+            $componentsBasePath = "$(System.DefaultWorkingDirectory)"
+            $parametersBasePath = "$(Build.Repository.LocalPath)"
+
+            if( "${{ join(';',parameters.checkoutRepositories) }}".length -gt 0) {
+              $componentsBasePath = Join-Path $componentsBasePath '$(modulesRepository)'
+              $parametersBasePath = "$(Build.Repository.LocalPath)/${{ parameters.parametersRepository }}"
+            }
+
+            # Load used functions
+            . "$componentsBasePath/${{ parameters.templateFunctionsPath }}/New-ModuleDeployment.ps1"
+            
+            # ----------------- #
+            # INVOKE DEPLOYMENT #
+            # ----------------- #
+            $functionInput = @{
+              moduleName         = '${{ parameters.moduleName }}'
+              componentsBasePath = $componentsBasePath
+              parametersBasePath = $parametersBasePath 
+              modulePath         = '${{ parameters.modulePath }}'
+              deployfile         = '${{ parameters.deployfile }}'  
+              parameterFilePath  = '${{ deploymentBlock.path }}' 
+              location           = '${{ parameters.location }}' 
+              resourceGroupName  = '${{ parameters.resourceGroupName }}'
+              subscriptionId     = '${{ parameters.subscriptionId }}'
+              managementGroupId  = '${{ parameters.managementGroupId }}'
+              # Note: if parameter is like "`$(removeDeployment*" it was not set as the variable was not resolved
+              removeDeployment   = ('${{ parameters.removeDeployment }}' -like "`$(removeDeployment*") ? $false : [System.Convert]::ToBoolean('${{ parameters.removeDeployment }}')
+            }
+
+            Write-Verbose "Invoke task with" -Verbose
+            $functionInput
+
+            New-ModuleDeployment @functionInput -Verbose
+
+# [PipelineOrhcestrated (KeyVault)] Deployment
+#-------------------------------------------
+- ${{ if eq(parameters.pokv, 'true') }}:
+  - ${{ each deploymentBlock in parameters.deploymentBlocks }}:
+    - deployment:
+      ${{ if ne( deploymentBlock.displayName, '') }}:
+        displayName: ${{ deploymentBlock.displayName }}
+      pool:
+        ${{ if ne(parameters.vmImage, '') }}:
+          vmImage: ${{ parameters.vmImage }}
+        ${{ if ne(parameters.poolName, '') }}:
+          name: ${{ parameters.poolName }}
+      dependsOn: '${{ parameters.dependsOn }}'
+      environment: '${{ parameters.environment }}'
+      workspace:
+        clean: all
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: none
+            - checkout: self
+            - ${{ if ne(parameters.checkoutRepositories, '') }}:
+              - ${{ each checkoutRepository in parameters.checkoutRepositories }}:
+                - checkout: ${{ checkoutRepository }}
+                  fetchDepth: 1  # the depth of commits to ask Git to fetch; if not set defaults to no limit
+                  path: 's/${{ checkoutRepository }}'
+
+            - task: DownloadBuildArtifacts@0
+              inputs:
+                buildType: 'current'
+                downloadType: 'single'
+                artifactName: '${{ parameters.artifactName}}'
+                downloadPath: $(System.ArtifactsDirectory)
+
+            - task: AzurePowerShell@5
+              displayName: Resolve $ENV Variables in ${{ parameters.parametersFile }}
+              inputs:
+                azureSubscription: '${{ parameters.serviceConnection }}'
+                ScriptType: 'InlineScript'
+                Inline: |
+                  $KeyVaultName = $ENV:KEYVAULTNAME
+                  $secrets = ${{ parameters.secretsFilter }}
+                  Write-Verbose "DEBUG: secrets -> $secrets <-" -verbose
+                  if ($secrets) {
+                    $array = $secrets.Split(',')
+                    Foreach ($key in $array) {
+                      Write-Host "Secret Key Filter is $key"
+                      $secret = Get-AzKeyVaultSecret -VaultName $(KeyVaultName) -Name "$key" -AsPlainText
+                      Write-Host "##vso[task.setvariable variable=$key;]$secret"
+                      New-Variable -Scope Global -Name "$key" -Value "$secret" -Force
+                      }  
+                  }
+                  $parametersFile = Get-Content "${{ parameters.parametersFile }}" | ForEach-Object { if ($_ -match "$") {$ExecutionContext.InvokeCommand.ExpandString($_)} else {$_}}
+                  Set-Content -Path "${{ parameters.parametersFile }}" -Value $parametersFile -Force
+                  # Display File contents (to assist with debugging)
+                  Get-Content "${{ parameters.parametersFile }}"
+                azurePowerShellVersion: 'LatestVersion'
+                pwsh: true
+
+            - task: AzureResourceGroupDeployment@2
+              displayName: 'Deploy ${{ parameters.moduleName }}'
+              inputs:
+                azureSubscription: '${{ parameters.serviceConnection }}'
+                resourceGroupName: '${{ parameters.resourceGroupName }}'
+                location: '${{ parameters.location }}'
+                csmFile: '${{ parameters.templateFile }}'
+                csmParametersFile: '${{ parameters.parametersFile }}'
+                overrideParameters: '${{ parameters.overrideParameters }}'
+                deploymentMode: Incremental
+                deploymentOutputs: resourceGroupDeploymentOutputs
+
+            - task: PowerShell@2
+              displayName: 'Set Secrets for [${{ parameters.moduleName }}]'            
+              inputs:
+                targetType: 'inline'
+                pwsh: true
+                script: |
+                  Write-Host "env:RESOURCEGROUPDEPLOYMENTOUTPUTS: $($ENV:RESOURCEGROUPDEPLOYMENTOUTPUTS)"
+                  Write-Host "resourceGroupDeploymentOutputs: $(resourceGroupDeploymentOutputs)"
+
+                  # Load used functions
+                  . "$(System.DefaultWorkingDirectory)/${{ parameters.templateFunctionsPath }}/Set-AKVSecrets.ps1"
+
+                  $KeyVaultName = $ENV:KEYVAULTNAME
+                  $moduleName = "${{ parameters.moduleName }}"
+                  $armOutputs = (ConvertFrom-Json $ENV:RESOURCEGROUPDEPLOYMENTOUTPUTS)
+
+                  InjectDeploymentOutputs -KeyVaultName $KeyVaultName -ModuleName $ModuleName -ArmOutputs $armOutputs

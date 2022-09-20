@@ -1,0 +1,109 @@
+---
+name: "SequenceAndPipelineCreate"
+trigger: none
+
+
+variables:
+  - template: .templates/vars.yml 
+  - name: WorkloadFolderName
+    value: "Infra_Apps"   
+  - name: skipComponentGovernanceDetection
+    value: true
+  - name: branch
+    value: $(Build.SourceBranchName)
+
+jobs:
+
+  - job: SequenceAndPipelineCreate
+    displayName: "SequenceAndPipelineCreate"
+    pool:
+      vmImage: "ubuntu-latest"
+      #name: "MyPool"
+
+
+    steps:
+
+      - template: .templates/sharedSteps.yml
+        parameters:
+          ARM_CLIENT_ID: ${{ variables['ARM_CLIENT_ID'] }}
+          ARM_CLIENT_SECRET: ${{ variables['ARM_CLIENT_SECRET'] }}
+          ARM_TENANT_ID: ${{ variables['ARM_TENANT_ID'] }}
+
+      - task: Bash@3
+        displayName: "Checkout"
+        inputs:
+          targetType: "inline"
+          script: |
+            git checkout -b $(branch)
+      #
+      # Initialize
+      # Generate new state data
+      #
+      - task: PowerShell@2
+        displayName: "SequenceAndPipelineCreate"
+        inputs:
+          targetType: "inline"
+          script: |
+            try{
+            $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\functions\Create-PushPipeline.ps1 -Force
+            Install-Module powershell-yaml -Force
+            $settingfile=get-content -path .\src\$(WorkloadFolderName)_Settings.json
+            $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
+            foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
+            {
+            Create-PushPipeline -SubscriptionId $subscriptionid
+            } 
+            
+            #redirect error
+                $GIT_REDIRECT_STDERR = '2>&1'
+
+                Write-Verbose "Setting git config...." -Verbose 
+
+                git config --global user.email "azuredevops@microsoft.com"
+                git config --global user.name "Azure DevOps"             
+
+                git branch
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+
+                Write-Verbose "git checkout...." -Verbose 
+                git checkout -b $(branch)
+
+                Write-Verbose "git pull...." -Verbose 
+                git pull origin $(branch)
+
+                Write-Verbose "GIT ADD..." -Verbose 
+                git add ".global/Pipelines/RelocationPush.yml"
+
+                Write-Verbose "Commiting the changes..." -Verbose 
+                git commit -m "Update from Build"
+
+                Write-Verbose "Pushing the changes..." -Verbose 
+                git push origin $(branch)
+
+                Write-Verbose "CHECK GIT STATUS..." -Verbose 
+                git status
+                 }
+                  catch{
+                    $statePath = $pwd
+                    Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force 
+                    $scriptPath= ($MyInvocation.MyCommand).Definition
+                    $scriptName= "SequenceAndPipelineCreate"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+
+                    $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+                    foreach($locationfile in $settinglocation){
+                    if($locationfile -match "_Settings.json")
+                    {
+                    $settingfile=get-content -path "$statePath/src/$locationfile"
+                    $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath 
+                    }
+                    }
+                    $Result = ""
+                    if($Error.Count){ $Result = "Failed"}
+                    Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $(branch)
+                    $LASTEXITCODE = 1
+                    write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+                    
+                    }
