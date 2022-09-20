@@ -11,14 +11,7 @@ on:
   push:
     branches: 
      - users/siddhigupta/generic_internal_function
-  
-    paths:
-      - '.global/Pipelines/**'
-      - '.github/workflows/relocation-pull.yml'
-      - 'src/internal/Functions/**'
-      - 'src/**'
-      - './.github/actions/templates/**'
-  
+     
 env:
   workloadFolderName: "InfraApps"
   skipComponentGovernanceDetection: true
