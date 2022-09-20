@@ -1,17 +1,10 @@
 name: "ymlCuraterPipeline"
 
-#
-# Triggers
-# Automated triggers are configured via Branch Policies
-# within Azure Repos. It's also recommended to manually
-# disable CI triggers with overrides.
-#
-
 on:
   workflow_dispatch:
-  push:
-    branches: 
-     - users/siddhigupta/generic_internal_function
+  #push:
+   # branches: 
+    # - users/siddhigupta/generic_internal_function
 
 env:
   workloadFolderName: 'InfraApps'
@@ -23,9 +16,10 @@ env:
   commit_message: 'Automated commit'
 
 jobs:
-  ymlCurater: 
-  runs_on: 'ubuntu-latest'
-  steps:
+  yml_curater: 
+    runs-on: ubuntu-latest
+    name: YML Curator
+    steps:
        
       - name: Set environment variables
         uses: ./.github/actions/templates/setEnvironmentVariables
