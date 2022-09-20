@@ -2,10 +2,9 @@ name: "Relocation - Pull"
 
 on:
   workflow_dispatch:
-  
   push:
     branches: 
-    - main
+    - users/siddhigupta/generic_internal_function
   
 env:
   workloadFolderName: "InfraApps"
