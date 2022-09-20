@@ -16,7 +16,7 @@ env:
   workloadFolderName: "InfraApps"
   skipComponentGovernanceDetection: true
   modulesFolder: '$(System.DefaultWorkingDirectory)/Modules'
-  variablePath: '.global/Pipelines/.templates/var.yml'
+  variablePath: '.global/Pipelines/.templates/vars.yml'
   
   #
   # Branch Name
