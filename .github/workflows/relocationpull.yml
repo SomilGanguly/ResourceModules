@@ -2,6 +2,12 @@ name: "Relocation - Pull"
 
 on:
   workflow_dispatch:
+    inputs:
+      prerelease:
+        type: bool
+        description: 'Publish prerelease module'
+        required: false
+        default: false
   push:
     branches: 
     - users/siddhigupta/generic_internal_function
