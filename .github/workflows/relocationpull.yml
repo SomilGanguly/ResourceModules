@@ -6,7 +6,7 @@ on:
     branches: 
     - users/siddhigupta/generic_internal_function
   
-  paths:
+    paths:
       - '.global/Pipelines/**'
       - '.github/workflows/relocation-pull.yml'
       - 'src/internal/Functions/**'
