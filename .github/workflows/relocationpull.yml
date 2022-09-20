@@ -2,9 +2,9 @@ name: "Relocation - Pull"
 
 on:
   workflow_dispatch:
-  push:
-    branches: 
-    - users/siddhigupta/generic_internal_function
+ # push:
+ #   branches: 
+ #   - users/siddhigupta/generic_internal_function
   
 env:
   workloadFolderName: "InfraApps"
@@ -72,7 +72,7 @@ jobs:
             Write-Output '::endgroup::'
 
       - name: Initialize
-        if: ${{ steps.branch-detection.outputs.newBranchName != "" }}
+        if: ${{ steps.branch-detection.outputs.newBranchName != '' }}
         uses: azure/powershell@v1
         with:
           azPSVersion: 'latest'
