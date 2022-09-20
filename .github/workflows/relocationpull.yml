@@ -1,8 +1,11 @@
 name: "Relocation - Pull"
 
 on:
+  workflow_dispatch:
+  
   push:
-    branches: main
+    branches: 
+    - main
   
 env:
   workloadFolderName: "InfraApps"
