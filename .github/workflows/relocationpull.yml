@@ -37,29 +37,21 @@ env:
 jobs:
   job_relocation_pull:
     runs-on: ubuntu-latest
-    name: "Pull"
+    name: Pull
     steps:
     
       - name: Set environment variables
         uses: ./.github/actions/templates/setEnvironmentVariables
         with:
           variablesPath: ${{ env.variablesPath }}
-          
-      - uses: actions/checkout@v3
+
+      - name: Shared Steps
+        uses: ./.github/actions/templates/sharedSteps
         with:
-           fetch-depth: 0
-      #
-      # Shared steps
-      # Include shared steps from the 'shared.yml' file
-      # to not have to repeat them in every pipeline.
-      #
-      - name: Shared Step
-        uses: SomilGanguly/ResourceModules/.global/Pipelines/.templates/sharedSteps.yml@users/siddhigupta/generic_internal_function
-        with:
-          AZ_MODULE_VERSION: ${{ secrets.AZ_MODULE_VERSION }}
           ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          AZ_MODULE_VERSION: ${{ secrets.AZ_MODULE_VERSION }}
 
       - name: BranchDetection
         id: branch-detection
