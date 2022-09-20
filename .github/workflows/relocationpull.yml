@@ -10,7 +10,7 @@ on:
         default: false
   push:
     branches: 
-    - users/siddhigupta/generic_internal_function
+     - users/siddhigupta/generic_internal_function
   
     paths:
       - '.global/Pipelines/**'
