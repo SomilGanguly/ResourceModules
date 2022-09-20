@@ -1,27 +1,26 @@
-name: relocation-push
+name: Relocation - Push
 
-# Controls when the workflow will run
 on:
-  push:
-    branches: [ "users/siddhigupta/generic_internal_function" ]
+  #push:
+   # branches: [ "users/siddhigupta/generic_internal_function" ]
 
   workflow_dispatch:
 
 env: 
   fileLocation: '/Infra_Apps/ismalik-internalAccess/carml-rakshana-poc/Microsoft.Storage_storageAccounts/pipelines/Microsoft.Storage_storageAccounts.yml'
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+
 jobs:
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     steps:
-      - uses: /Infra_Apps/ismalik-internalAccess/carml-rakshana-poc/Microsoft.Storage_storageAccounts/pipelines/Microsoft.Storage_storageAccounts.yml@
+    
+      - uses: /Infra_Apps/ismalik-internalAccess/carml-rakshana-poc/Microsoft.Storage_storageAccounts/pipelines/Microsoft.Storage_storageAccounts.yml
  
   deployment:
     runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
