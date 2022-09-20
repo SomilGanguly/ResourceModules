@@ -50,7 +50,7 @@ jobs:
       # Include shared steps from the 'shared.yml' file
       # to not have to repeat them in every pipeline.
       #
-     - uses: .github/actions/templates/sharedSteps.yml
+     - uses: \.global\Pipelines/.templates/sharedSteps.yml
         with:
           AZ_MODULE_VERSION: ${{ secret.AZ_MODULE_VERSION }}
           ARM_CLIENT_ID: ${{ secret.ARM_CLIENT_ID }}
@@ -60,7 +60,7 @@ jobs:
       - name: "BranchDetection"
         shell: pwsh
         run: |
-            $oldbranchname='$(branch)'
+            $oldbranchname='${{ env.branch }}'
             $branches=git branch -a
             foreach($branch in $branches){
             $modifiedbranch=$branch.Replace('remotes/origin/','')
@@ -82,7 +82,7 @@ jobs:
         shell: pwsh
         run: |
             try{
-             $Env:PSModulePath = $Env:PSModulePath, '$(modulesFolder)' -join [IO.Path]::PathSeparator
+             $Env:PSModulePath = $Env:PSModulePath, '${{ modulesFolder)' -join [IO.Path]::PathSeparator
             Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
             Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
             Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
