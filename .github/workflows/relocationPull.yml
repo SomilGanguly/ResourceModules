@@ -105,7 +105,7 @@ jobs:
             git status
           }
           catch{
-            $statePath = $pwd
+            # $statePath = $pwd
             $branchName = "main"
             Import-Module "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Log-Exceptions.ps1" -Force
             $scriptPath= ($MyInvocation.MyCommand).Definition
@@ -120,7 +120,7 @@ jobs:
             }
             $Result = ""
             if($Error.Count){ $Result = "Failed"}
-            Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $branchName
+            Log-Exceptions -ScriptName $scriptName -LogPath "$env:GITHUB_WORKSPACE/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $branchName
             $LASTEXITCODE = 1
             write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
           }
