@@ -33,8 +33,10 @@ jobs:
         run: |
           $oldbranchname='${{ inputs.branch }}'
           $branches=git branch -a
+          Write-Output "1. All branches: $branches"
           foreach($branch in $branches){
             $modifiedbranch=$branch.Replace('remotes/origin/','')
+            Write-Output "2. Modified branch: $modifiedbranch"
             if($modifiedbranch -match $oldbranchname+'_'){
               $emptyarray=@()
               $numberonly=$modifiedbranch.Substring($modifiedbranch.IndexOf('_')+1)
@@ -44,9 +46,11 @@ jobs:
               $emptyarray+=0
             }
           }
+          Write-Output "3. Empty array: $emptyarray"
           $latestnumber=($emptyarray | measure -Maximum).Maximum + 1
+          Write-Output "4. Latest number: $latestnumber"
           $newbranchname= $oldbranchname+'_'+$latestnumber
-          write-host $newbranchname
+          write-Output "5. Name of new branch: '$newbranchname'"
           Write-Output "newbranchname=$newbranchname" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
         shell: pwsh
 
