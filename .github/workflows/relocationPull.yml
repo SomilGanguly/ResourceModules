@@ -57,6 +57,7 @@ jobs:
       - name: 'Initialize'
         run: |
           try{
+            Write-Output "1. New branch name received: '${{ env.newbranchname }}'"
             $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
             Import-Module .\src\internal\Functions\DiscoverResources.ps1 -Force
             Import-Module .\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
@@ -103,7 +104,7 @@ jobs:
             git commit -m "Update from Build"
 
             Write-Verbose "Pushing the changes..." -Verbose
-            git push -f origin "${{ env.newbranchname }}"
+            git push origin "${{ env.newbranchname }}"
 
             Write-Verbose "CHECK GIT STATUS..." -Verbose
             git status
