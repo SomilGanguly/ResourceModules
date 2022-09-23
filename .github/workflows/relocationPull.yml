@@ -118,7 +118,7 @@ jobs:
             foreach($locationfile in $settinglocation){
               if($locationfile -match "Settings.json")
               {
-                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $settingfile=get-content -path "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/$locationfile"
                 $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath
               }
             }
