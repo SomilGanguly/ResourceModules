@@ -28,6 +28,7 @@ jobs:
           ARM_CLIENT_ID: '${{ secrets.ARM_CLIENT_ID }}'
           ARM_CLIENT_SECRET: '${{ secrets.ARM_CLIENT_SECRET }}'
           ARM_TENANT_ID: '${{ secrets.ARM_TENANT_ID }}'
+          modulesFolder: '${{ env.modulesFolder }}'
 
       - name: 'Branch detection'
         run: |
@@ -57,20 +58,21 @@ jobs:
       - name: 'Initialize'
         run: |
           try{
+            Write-Output "1. New branch name received: '${{ env.newbranchname }}'"
             $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
-            Import-Module .\src\internal\Functions\DiscoverResources.ps1 -Force
-            Import-Module .\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
-            Import-Module .\src\internal\Functions\Modify-SettingFileName.ps1 -Force
-            Import-Module .\src\pull.ps1 -Force
-            Import-Module .\src\internal\functions\Update-PulledParametersFile.ps1 -Force
+            Import-Module ./utilities/tools/Carmlizer/src/internal/Functions/DiscoverResources.ps1 -Force
+            Import-Module ./utilities/tools/Carmlizer/src/internal/Functions/Update-FolderStructureInJson.ps1 -Force
+            Import-Module ./utilities/tools/Carmlizer/src/internal/Functions/Modify-SettingFileName.ps1 -Force
+            Import-Module ./utilities/tools/Carmlizer/src/Get-CARMLPull.ps1 -Force
+            Import-Module ./utilities/tools/Carmlizer/src/internal/Functions/Convert-ARMToBicepParameters.ps1 -Force
 
-            $settingfile=get-content -path .\src\Settings.json
+            $settingfile=get-content -path $pwd/utilities/tools/Carmlizer/src/Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
             foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
             {
-              Get-Relocationpull -SubscriptionId $subscriptionid
+              Get-CARMLPull -SubscriptionId $subscriptionid
               Update-FolderStructureInJson -SubscriptionId $subscriptionid
-              Script-Curation -SubscriptionId $subscriptionid
+              # Script-Curation -SubscriptionId $subscriptionid
             }
             modify-settingfilename -workloadname ${{ env.WorkloadFolderName }}
 
@@ -88,16 +90,16 @@ jobs:
             git status
 
             Write-Verbose "git checkout...." -Verbose
-            git checkout -b "${{ env.newbranchname }}"
+            git checkout -b ${{ env.newbranchname }}
 
             Write-Verbose "git pull...." -Verbose
-            git pull origin "${{ env.newbranchname }}"
+            git pull origin ${{ env.newbranchname }}
 
             Write-Verbose "GIT ADD..." -Verbose
-            git add "${{ env.WorkloadFolderName }}/" src/"${{ env.WorkloadFolderName }}"_Settings.json
+            git add "${{ env.WorkloadFolderName }}/" $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/"${{ env.WorkloadFolderName }}"_Settings.json
 
             Write-Verbose "GIT REMOVE..." -Verbose
-            git rm src/Settings.json
+            git rm $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/utilities/tools/Carmlizer/src/Settings.json
 
             Write-Verbose "Commiting the changes..." -Verbose
             git commit -m "Update from Build"
@@ -109,8 +111,7 @@ jobs:
             git status
           }
           catch{
-            # $statePath = $pwd
-            $branchName = "main"
+            $branchName = '${{ env.newbranchname }}'
             Import-Module "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Log-Exceptions.ps1" -Force
             $scriptPath= ($MyInvocation.MyCommand).Definition
             $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
