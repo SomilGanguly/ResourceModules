@@ -111,7 +111,7 @@ jobs:
           catch{
             $statePath = $pwd
             $branchName = "main"
-            Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force
+            Import-Module "$statePath/../../utilities/tools/Carmlizer/src/internal/Functions/Log-Exceptions.ps1" -Force
             $scriptPath= ($MyInvocation.MyCommand).Definition
             $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
             $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
