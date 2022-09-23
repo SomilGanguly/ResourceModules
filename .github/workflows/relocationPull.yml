@@ -2,15 +2,6 @@ name: 'Relocation - Pull_Rakshana'
 
 on:
   workflow_dispatch:
-    inputs:
-      removeDeployment:
-        type: boolean
-        description: 'Remove deployed module'
-        required: false
-        default: true
-  push:
-    branches:
-      - main
 
 env:
   modulesFolder: './Modules'
@@ -25,8 +16,14 @@ jobs:
     name: 'Relocation Pull'
     runs-on: ubuntu-latest
     steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
       - name: 'Execute shared steps'
-        uses: ./../../utilities/pipelines/Carmlizer/.templates
+        uses: ./.github/actions/templates/sharedSteps
         with:
           ARM_CLIENT_ID: '${{ secrets.ARM_CLIENT_ID }}'
           ARM_CLIENT_SECRET: '${{ secrets.ARM_CLIENT_SECRET }}'
@@ -34,10 +31,12 @@ jobs:
 
       - name: 'Branch detection'
         run: |
-          $oldbranchname='${{ inputs.branch }}'
+          $oldbranchname='${{ env.branch }}'
           $branches=git branch -a
+          Write-Output "1. All branches: $branches"
           foreach($branch in $branches){
             $modifiedbranch=$branch.Replace('remotes/origin/','')
+            Write-Output "2. Modified branch: $modifiedbranch"
             if($modifiedbranch -match $oldbranchname+'_'){
               $emptyarray=@()
               $numberonly=$modifiedbranch.Substring($modifiedbranch.IndexOf('_')+1)
@@ -47,24 +46,23 @@ jobs:
               $emptyarray+=0
             }
           }
+          Write-Output "3. Empty array: $emptyarray"
           $latestnumber=($emptyarray | measure -Maximum).Maximum + 1
+          Write-Output "4. Latest number: $latestnumber"
           $newbranchname= $oldbranchname+'_'+$latestnumber
-          write-host $newbranchname
+          write-Output "5. Name of new branch: '$newbranchname'"
           Write-Output "newbranchname=$newbranchname" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
 
       - name: 'Initialize'
         run: |
           try{
-            $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
-            Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
-            Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
-            Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
-            Import-Module .\src\internal\functions\Dependencycopy.ps1 -Force
-            Import-Module .\src\internal\functions\Script-Curation.ps1 -Force
-            Import-Module .\src\internal\functions\Update-FolderStructureInJson.ps1 -Force
-            Import-Module .\src\internal\functions\Modify-SettingFileName.ps1 -Force
-            Import-Module .\src\Functions\Get-Relocationpull.ps1 -Force
-            Import-Module .\src\internal\functions\Convert-ARMToBicepParameters.ps1 -Force
+            $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\Functions\DiscoverResources.ps1 -Force
+            Import-Module .\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
+            Import-Module .\src\internal\Functions\Modify-SettingFileName.ps1 -Force
+            Import-Module .\src\pull.ps1 -Force
+            Import-Module .\src\internal\functions\Update-PulledParametersFile.ps1 -Force
 
             $settingfile=get-content -path .\src\Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
@@ -74,7 +72,7 @@ jobs:
               Update-FolderStructureInJson -SubscriptionId $subscriptionid
               Script-Curation -SubscriptionId $subscriptionid
             }
-            modify-settingfilename -workloadname ${{ inputs.WorkloadFolderName }}
+            modify-settingfilename -workloadname ${{ env.WorkloadFolderName }}
 
             #redirect error
             $GIT_REDIRECT_STDERR = '2>&1'
@@ -96,7 +94,7 @@ jobs:
             git pull origin "${{ env.newbranchname }}"
 
             Write-Verbose "GIT ADD..." -Verbose
-            git add "${{ inputs.WorkloadFolderName }}/" src/"${{ inputs.WorkloadFolderName }}"_Settings.json
+            git add "${{ env.WorkloadFolderName }}/" src/"${{ env.WorkloadFolderName }}"_Settings.json
 
             Write-Verbose "GIT REMOVE..." -Verbose
             git rm src/Settings.json
@@ -111,22 +109,23 @@ jobs:
             git status
           }
           catch{
-            $statePath = $pwd
+            # $statePath = $pwd
             $branchName = "main"
-            Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force
+            Import-Module "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Log-Exceptions.ps1" -Force
             $scriptPath= ($MyInvocation.MyCommand).Definition
             $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
-            $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+            $settinglocation=(Get-ChildItem -Path "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/").Name
             foreach($locationfile in $settinglocation){
               if($locationfile -match "Settings.json")
               {
-                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $settingfile=get-content -path "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/$locationfile"
                 $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath
               }
             }
             $Result = ""
             if($Error.Count){ $Result = "Failed"}
-            Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $branchName
+            Log-Exceptions -ScriptName $scriptName -LogPath "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/$logPath" -Exception "$($PSItem.Exception.Message)" -Result $Result -ScriptPath $scriptPath -branchName $branchName
             $LASTEXITCODE = 1
             write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
           }
+        shell: pwsh
