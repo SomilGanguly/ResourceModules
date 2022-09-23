@@ -9,7 +9,7 @@ function DiscoverResources {
         $statePath = $pwd
     )
 
-    $settingfile = Get-Content -Path "$statePath/src/Settings.json"
+    $settingfile = Get-Content -Path "$statePath/utilities/tools/Carmlizer/src/Settings.json"
     $resourceGroups = Get-AzResourceGroup
     $resourceGroupApiVersion = ((Get-AzResourceProvider -ProviderNamespace Microsoft.Resources).ResourceTypes | Where-Object ResourceTypeName -EQ resourceGroups).ApiVersions[0]
     $SkipResourceGroupFlag = ($settingfile | ConvertFrom-Json).RelocationSettings.SkipResourceGroup

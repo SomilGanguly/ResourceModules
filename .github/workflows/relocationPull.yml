@@ -65,7 +65,7 @@ jobs:
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/pull.ps1 -Force
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Update-PulledParametersFile.ps1 -Force
 
-            $settingfile=get-content -path $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/Settings.json
+            $settingfile=get-content -path $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/utilities/tools/Carmlizer/src/Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
             foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
             {
@@ -98,7 +98,7 @@ jobs:
             git add "${{ env.WorkloadFolderName }}/" $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/"${{ env.WorkloadFolderName }}"_Settings.json
 
             Write-Verbose "GIT REMOVE..." -Verbose
-            git rm $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/Settings.json
+            git rm $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/utilities/tools/Carmlizer/src/Settings.json
 
             Write-Verbose "Commiting the changes..." -Verbose
             git commit -m "Update from Build"
