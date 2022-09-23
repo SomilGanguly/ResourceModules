@@ -7,7 +7,7 @@ inputs:
     default: ''
   modulesFolder:
     description: 'Location of modules folder'
-    default: './Modules'
+    default: './root'
   ARM_CLIENT_ID:
     description: 'ARM Client ID'
     default: ''
