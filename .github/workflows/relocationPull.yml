@@ -31,7 +31,7 @@ jobs:
 
       - name: 'Branch detection'
         run: |
-          $oldbranchname='${{ inputs.branch }}'
+          $oldbranchname='${{ env.branch }}'
           $branches=git branch -a
           Write-Output "1. All branches: $branches"
           foreach($branch in $branches){
@@ -57,7 +57,7 @@ jobs:
       - name: 'Initialize'
         run: |
           try{
-            $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
+            $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
             Import-Module .\src\internal\Functions\DiscoverResources.ps1 -Force
             Import-Module .\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
             Import-Module .\src\internal\Functions\Modify-SettingFileName.ps1 -Force
@@ -72,7 +72,7 @@ jobs:
               Update-FolderStructureInJson -SubscriptionId $subscriptionid
               Script-Curation -SubscriptionId $subscriptionid
             }
-            modify-settingfilename -workloadname ${{ inputs.WorkloadFolderName }}
+            modify-settingfilename -workloadname ${{ env.WorkloadFolderName }}
 
             #redirect error
             $GIT_REDIRECT_STDERR = '2>&1'
@@ -94,7 +94,7 @@ jobs:
             git pull origin "${{ env.newbranchname }}"
 
             Write-Verbose "GIT ADD..." -Verbose
-            git add "${{ inputs.WorkloadFolderName }}/" src/"${{ inputs.WorkloadFolderName }}"_Settings.json
+            git add "${{ env.WorkloadFolderName }}/" src/"${{ env.WorkloadFolderName }}"_Settings.json
 
             Write-Verbose "GIT REMOVE..." -Verbose
             git rm src/Settings.json
