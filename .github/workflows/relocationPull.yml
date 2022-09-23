@@ -65,8 +65,8 @@ jobs:
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Modify-SettingFileName.ps1 -Force
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/Get-CARMLPull.ps1 -Force
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Convert-ARMToBicepParameters.ps1 -Force
-
-            $settingfile=get-content -path $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/utilities/tools/Carmlizer/src/Settings.json
+            Write-Host $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/Settings.json
+            $settingfile=get-content -path $pwd/utilities/tools/Carmlizer/src/Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
             foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
             {
