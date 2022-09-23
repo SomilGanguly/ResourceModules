@@ -54,15 +54,11 @@ jobs:
         run: |
           try{
             $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
-            Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
-            Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
-            Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
-            Import-Module .\src\internal\functions\Dependencycopy.ps1 -Force
-            Import-Module .\src\internal\functions\Script-Curation.ps1 -Force
-            Import-Module .\src\internal\functions\Update-FolderStructureInJson.ps1 -Force
-            Import-Module .\src\internal\functions\Modify-SettingFileName.ps1 -Force
-            Import-Module .\src\Functions\Get-Relocationpull.ps1 -Force
-            Import-Module .\src\internal\functions\Convert-ARMToBicepParameters.ps1 -Force
+            Import-Module .\src\internal\Functions\DiscoverResources.ps1 -Force
+            Import-Module .\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
+            Import-Module .\src\internal\Functions\Modify-SettingFileName.ps1 -Force
+            Import-Module .\src\pull.ps1 -Force
+            Import-Module .\src\internal\functions\Update-PulledParametersFile.ps1 -Force
 
             $settingfile=get-content -path .\src\Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
