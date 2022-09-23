@@ -1,1 +1,9 @@
-{}
+{
+  "Pull-Pipeline_14c9b062-d4c1-49a4-a0e7-fdc61f25c989": {
+    "Exception": "The specified module '.\\src\\internal\\Functions\\DiscoverResources.ps1' was not loaded because no valid module file was found in any module directory.",
+    "Name": "Pull-Pipeline_14c9b062-d4c1-49a4-a0e7-fdc61f25c989",
+    "ScriptPath": "/home/runner/work/_temp/14c9b062-d4c1-49a4-a0e7-fdc61f25c989.ps1",
+    "Time": "Friday, 23 September 2022 11:15:05",
+    "Result": "Failed"
+  }
+}
