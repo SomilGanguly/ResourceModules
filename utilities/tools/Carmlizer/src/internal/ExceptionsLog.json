@@ -1,0 +1,51 @@
+{
+  "Pull-Pipeline_34bdf47f-95e9-4c69-b465-032a1611372a": {
+    "Exception": "The term 'int' is not recognized as a name of a cmdlet, function, script file, or executable program.\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again..Exception.Message",
+    "Time": "Thursday, 19 May 2022 10:58:40",
+    "Name": "Pull-Pipeline_34bdf47f-95e9-4c69-b465-032a1611372a",
+    "Result": "Failed",
+    "ScriptPath": "/home/vsts/work/_temp/34bdf47f-95e9-4c69-b465-032a1611372a.ps1"
+  },
+  "PushLogtoLAW_6adefd21-b0b4-48d4-b668-bc3097bae912": {
+    "ScriptPath": "/home/vsts/work/_temp/6adefd21-b0b4-48d4-b668-bc3097bae912.ps1",
+    "Time": "Friday, 20 May 2022 08:56:58",
+    "Name": "PushLogtoLAW_6adefd21-b0b4-48d4-b668-bc3097bae912",
+    "Exception": "The term 'int' is not recognized as a name of a cmdlet, function, script file, or executable program.\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again..Exception.Message",
+    "Result": "Failed"
+  },
+  "Pull-Pipeline_$logPath\" -Exception \"$PSItem.Exception": {
+    "ScriptPath": "\r\n    [CmdletBinding()]\r\n    param\r\n    (\r\n        [Parameter(Mandatory=$true)]\r\n        [string] $path\r\n    )\r\n    $ErrorActionPreference = \"Stop\"\r\n    $VerbosePreference= 'Continue'\r\n\r\n    try {\r\n        $resourceIdArray = (Get-Content $path -Raw| ConvertFrom-Json).resourcesToMove.resourceID\r\n        Write-Verbose \"Identified resource Ids from the array input:`n$($resourceIdArray).\"\r\n        $destinationRG= (Get-Content $path -Raw| ConvertFrom-Json).destinationRG\r\n        Write-Verbose \"Identified destination resource group: $($destinationRG).\"\r\n        $sourceSubscription= (Get-Content $path -Raw| ConvertFrom-Json).sourceSubscriptionId\r\n        Write-Verbose \"Identified source subscription: $($sourceSubscription).\"\r\n        $targetSubscription= (Get-Content $path -Raw| ConvertFrom-Json).targetSubscriptionId\r\n        Write-Verbose \"Identified destination subscription: $($targetSubscription).\"\r\n        if ((Get-AzSubscription -SubscriptionId $sourceSubscription).TenantId -eq (Get-AzSubscription -SubscriptionId $targetSubscription).TenantId)\r\n        {\r\n            Write-Verbose -Message \"Same tenant ID.\"\r\n            foreach($resource in $resourceIdArray)\r\n            {\r\n                $sourceRG= $resource.Split(\"/\")[4]\r\n                if (($sourceSubscription -eq $targetSubscription) -and ($sourceRG -eq $destinationRG))\r\n                {\r\n                    Write-Error \"This does not qualify as the case to run this script.\"\r\n                    throw\r\n                }\r\n                ## checking if target subscription is registered for a resource type\r\n                Set-AzContext -Subscription $targetSubscription\r\n                Write-Verbose -Message \"Context set.\"\r\n                $resourceProvider=$resource.Split(\"/\")[6]\r\n                $AvailabilityCheck = (Get-AzResourceProvider -ProviderNamespace $resourceProvider).RegistrationState\r\n                Write-Verbose \"Checking if the provider is registered or not.\"\r\n                if($AvailabilityCheck -eq \"NotRegistered\")\r\n                {\r\n                    Write-Verbose -Message \"Registering service.\"\r\n                    Register-AzResourceProvider -ProviderNamespace $resourceProvider\r\n                }\r\n                Write-Verbose -Message \"Invoking validation.\"\r\n                $errorMsg= Invoke-AzResourceAction -Action validateMoveResources -ResourceId \"/subscriptions/$sourceSubscription/resourceGroups/$sourceRG\" -Parameters @{resources = @(\"$resource\") ; targetResourceGroup = \"/subscriptions/$targetSubscription/resourceGroups/$destinationRG\"} -Confirm:$False -Force \r\n                if ($errorMsg)\r\n                {\r\n                    Write-Error \"Cannot be invoked.\"\r\n                    throw\r\n                }\r\n            }\r\n            Write-Host  (\"Moving resource $resource\")\r\n            Move-AzResource -DestinationResourceGroupName $destinationRG -ResourceId $resourceIdArray -Confirm:$False -Force\r\n        }\r\n        else\r\n        {\r\n            Write-Verbose -Message \"Subscription IDs are not in the same tenant.\"\r\n        }\r\n    }\r\n    catch{\r\n        $statePath = $pwd\r\n        $branchName = \"ismalik-AFFenhancement\"\r\n        Import-Module \"$statePath/src/internal/functions/Log-Exceptions.ps1\" -Force\r\n        $scriptPath= ($MyInvocation.MyCommand).Definition\r\n        $scriptName= \"Pull-Pipeline\"+\"_\"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName\r\n        $settinglocation=(Get-ChildItem -Path \"$statePath/src/\").Name\r\n        foreach($locationfile in $settinglocation){\r\n        if($locationfile -match \"Settings.json\")\r\n        {\r\n        $settingfile=get-content -path \"$statePath/src/$locationfile\"\r\n        $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath\r\n        }\r\n        }\r\n        $Result = \"\"\r\n        if($Error.Count){ $Result = \"Failed\"}\r\n        Log-Exceptions -ScriptName $scriptName -LogPath \"$statePath/$logPath\" -Exception \"$PSItem.Exception.Message\" -Result $Result -ScriptPath $scriptPath -branchName $branchName\r\n        $LASTEXITCODE = 1\r\n        write-host \"powershell exit code\" $LASTEXITCODE -BackgroundColor Red\r\n        }\r\n",
+    "Result": "Failed",
+    "Exception": "This does not qualify as the case to run this script..Exception.Message",
+    "Name": "Pull-Pipeline_$logPath\" -Exception \"$PSItem.Exception",
+    "Time": "Tuesday, 16 August 2022 12:04:57"
+  },
+  "Pull-Pipeline_ffac2df8-4e6c-4c99-961c-24fc71e6b018": {
+    "Result": "Failed",
+    "Exception": "This does not qualify as the case to run this script..Exception.Message",
+    "Time": "Tuesday, 16 August 2022 12:22:03",
+    "Name": "Pull-Pipeline_ffac2df8-4e6c-4c99-961c-24fc71e6b018",
+    "ScriptPath": "/home/vsts/work/_temp/ffac2df8-4e6c-4c99-961c-24fc71e6b018.ps1"
+  },
+  "Pull-Pipeline_43e897a0-995f-4d97-8dba-971fa7db24c8": {
+    "Result": "Failed",
+    "Name": "Pull-Pipeline_43e897a0-995f-4d97-8dba-971fa7db24c8",
+    "Exception": "The term 'Convert-ARMToBicepParameters' is not recognized as a name of a cmdlet, function, script file, or executable program.\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again..Exception.Message",
+    "ScriptPath": "/home/vsts/work/_temp/43e897a0-995f-4d97-8dba-971fa7db24c8.ps1",
+    "Time": "Wednesday, 24 August 2022 11:27:04"
+  },
+  "Pull-Pipeline_9d2d5472-bfa5-411d-9958-afc072d2b423": {
+    "Name": "Pull-Pipeline_9d2d5472-bfa5-411d-9958-afc072d2b423",
+    "Result": "Failed",
+    "Exception": "Cannot bind argument to parameter 'exportedArmLocation' because it is an empty string..Exception.Message",
+    "Time": "Wednesday, 24 August 2022 11:40:49",
+    "ScriptPath": "/home/vsts/work/_temp/9d2d5472-bfa5-411d-9958-afc072d2b423.ps1"
+  },
+  "Pull-Pipeline_f7396f00-dbc8-4765-84d0-7aa00bc57068": {
+    "Name": "Pull-Pipeline_f7396f00-dbc8-4765-84d0-7aa00bc57068",
+    "Exception": "The operation was canceled..Exception.Message",
+    "Result": "Failed",
+    "ScriptPath": "/home/vsts/work/_temp/f7396f00-dbc8-4765-84d0-7aa00bc57068.ps1",
+    "Time": "Wednesday, 24 August 2022 12:15:51"
+  }
+}

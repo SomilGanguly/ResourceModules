@@ -1,0 +1,132 @@
+name: 'Relocation - Pull_Rakshana'
+
+on:
+  workflow_dispatch:
+    inputs:
+      removeDeployment:
+        type: boolean
+        description: 'Remove deployed module'
+        required: false
+        default: true
+  push:
+    branches:
+      - main
+
+env:
+  modulesFolder: './Modules'
+  WorkloadFolderName: 'Infra_Apps'
+  skipComponentGovernanceDetection: true
+  branch: 'relocationpullbranch'
+  commit_message: 'Automated commit'
+  pull_request: 'Automated State'
+
+jobs:
+  job_pull:
+    name: 'Relocation Pull'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Execute shared steps'
+        uses: ./../../utilities/pipelines/Carmlizer/.templates
+        with:
+          ARM_CLIENT_ID: '${{ secrets.ARM_CLIENT_ID }}'
+          ARM_CLIENT_SECRET: '${{ secrets.ARM_CLIENT_SECRET }}'
+          ARM_TENANT_ID: '${{ secrets.ARM_TENANT_ID }}'
+
+      - name: 'Branch detection'
+        run: |
+          $oldbranchname='${{ inputs.branch }}'
+          $branches=git branch -a
+          foreach($branch in $branches){
+            $modifiedbranch=$branch.Replace('remotes/origin/','')
+            if($modifiedbranch -match $oldbranchname+'_'){
+              $emptyarray=@()
+              $numberonly=$modifiedbranch.Substring($modifiedbranch.IndexOf('_')+1)
+              $emptyarray+=$numberonly
+            }
+            else{
+              $emptyarray+=0
+            }
+          }
+          $latestnumber=($emptyarray | measure -Maximum).Maximum + 1
+          $newbranchname= $oldbranchname+'_'+$latestnumber
+          write-host $newbranchname
+          Write-Output "newbranchname=$newbranchname" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: 'Initialize'
+        run: |
+          try{
+            $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
+            Import-Module .\src\internal\functions\Curated-ExportedARM.ps1 -Force
+            Import-Module .\src\internal\functions\Generate-ARMParameters.ps1 -Force
+            Import-Module .\src\internal\functions\DiscoverResources.ps1 -Force
+            Import-Module .\src\internal\functions\Dependencycopy.ps1 -Force
+            Import-Module .\src\internal\functions\Script-Curation.ps1 -Force
+            Import-Module .\src\internal\functions\Update-FolderStructureInJson.ps1 -Force
+            Import-Module .\src\internal\functions\Modify-SettingFileName.ps1 -Force
+            Import-Module .\src\Functions\Get-Relocationpull.ps1 -Force
+            Import-Module .\src\internal\functions\Convert-ARMToBicepParameters.ps1 -Force
+
+            $settingfile=get-content -path .\src\Settings.json
+            $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
+            foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
+            {
+              Get-Relocationpull -SubscriptionId $subscriptionid
+              Update-FolderStructureInJson -SubscriptionId $subscriptionid
+              Script-Curation -SubscriptionId $subscriptionid
+            }
+            modify-settingfilename -workloadname ${{ inputs.WorkloadFolderName }}
+
+            #redirect error
+            $GIT_REDIRECT_STDERR = '2>&1'
+
+            Write-Verbose "Setting git config...." -Verbose
+
+            git config --global user.email "azuredevops@microsoft.com"
+            git config --global user.name "Azure DevOps"
+
+            git branch
+
+            Write-Verbose "CHECK GIT STATUS..." -Verbose
+            git status
+
+            Write-Verbose "git checkout...." -Verbose
+            git checkout -b "${{ env.newbranchname }}"
+
+            Write-Verbose "git pull...." -Verbose
+            git pull origin "${{ env.newbranchname }}"
+
+            Write-Verbose "GIT ADD..." -Verbose
+            git add "${{ inputs.WorkloadFolderName }}/" src/"${{ inputs.WorkloadFolderName }}"_Settings.json
+
+            Write-Verbose "GIT REMOVE..." -Verbose
+            git rm src/Settings.json
+
+            Write-Verbose "Commiting the changes..." -Verbose
+            git commit -m "Update from Build"
+
+            Write-Verbose "Pushing the changes..." -Verbose
+            git push origin "${{ env.newbranchname }}"
+
+            Write-Verbose "CHECK GIT STATUS..." -Verbose
+            git status
+          }
+          catch{
+            $statePath = $pwd
+            $branchName = "main"
+            Import-Module "$statePath/src/internal/functions/Log-Exceptions.ps1" -Force
+            $scriptPath= ($MyInvocation.MyCommand).Definition
+            $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
+            $settinglocation=(Get-ChildItem -Path "$statePath/src/").Name
+            foreach($locationfile in $settinglocation){
+              if($locationfile -match "Settings.json")
+              {
+                $settingfile=get-content -path "$statePath/src/$locationfile"
+                $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath
+              }
+            }
+            $Result = ""
+            if($Error.Count){ $Result = "Failed"}
+            Log-Exceptions -ScriptName $scriptName -LogPath "$statePath/$logPath" -Exception "$PSItem.Exception.Message" -Result $Result -ScriptPath $scriptPath -branchName $branchName
+            $LASTEXITCODE = 1
+            write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
+          }
