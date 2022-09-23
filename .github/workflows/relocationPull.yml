@@ -58,7 +58,8 @@ jobs:
       - name: 'Initialize'
         run: |
           try{
-            Write-Output "1. New branch name received: '${{ env.newbranchname }}'"
+            Write-Output "1. GitHub workspace: $env:GITHUB_WORKSPACE"
+            Write-Output "2. New branch name received: '${{ env.newbranchname }}'"
             $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/DiscoverResources.ps1 -Force
             Import-Module $env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Update-FolderStructureInJson.ps1 -Force
