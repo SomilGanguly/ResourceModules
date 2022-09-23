@@ -1,6 +1,7 @@
-name: 'Relocation - Pull'
+name: 'Relocation - Pull_Rakshana'
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch
 
 env:
   modulesFolder: './Modules'
