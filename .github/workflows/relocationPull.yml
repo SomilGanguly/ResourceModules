@@ -48,6 +48,7 @@ jobs:
           $newbranchname= $oldbranchname+'_'+$latestnumber
           write-host $newbranchname
           Write-Output "newbranchname=$newbranchname" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
 
       - name: 'Initialize'
         run: |
@@ -127,3 +128,4 @@ jobs:
             $LASTEXITCODE = 1
             write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
           }
+        shell: pwsh
