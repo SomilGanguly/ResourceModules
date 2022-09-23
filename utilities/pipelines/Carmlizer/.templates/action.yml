@@ -60,14 +60,14 @@ runs:
       shell: pwsh
 
     - name: 'Connect'
-        run: |
-          $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
-          if('${{ inputs.ARM_CLIENT_ID}}') {
-            $clientId='${{ inputs.ARM_CLIENT_ID}}'
-            $clientSecret='${{ inputs.ARM_CLIENT_SECRET}}'
-            $credential = New-Object PSCredential -ArgumentList $clientId, (ConvertTo-SecureString -String $clientSecret -AsPlainText -Force)
-            Connect-AzAccount -TenantId ${{ inputs.ARM_TENANT_ID}} -ServicePrincipal -Credential $credential
-          } else {
-            Connect-AzAccount -TenantId ${{ inputs.ARM_TENANT_ID}} -Identity
-          }
-        shell: pwsh
+      run: |
+        $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
+        if('${{ inputs.ARM_CLIENT_ID}}') {
+          $clientId='${{ inputs.ARM_CLIENT_ID}}'
+          $clientSecret='${{ inputs.ARM_CLIENT_SECRET}}'
+          $credential = New-Object PSCredential -ArgumentList $clientId, (ConvertTo-SecureString -String $clientSecret -AsPlainText -Force)
+          Connect-AzAccount -TenantId ${{ inputs.ARM_TENANT_ID}} -ServicePrincipal -Credential $credential
+        } else {
+          Connect-AzAccount -TenantId ${{ inputs.ARM_TENANT_ID}} -Identity
+        }
+      shell: pwsh
