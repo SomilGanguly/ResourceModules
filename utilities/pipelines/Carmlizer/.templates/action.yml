@@ -21,45 +21,45 @@ inputs:
 runs:
   using: composite
   steps:
-  - name: 'Checkout'
-    uses: actions/checkout@v2
-    with:
-      fetch-depth: 0
-      persist-credentials: true
+    - name: 'Checkout'
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        persist-credentials: true
 
-  - name: 'Get Latest Az version'
-    if: ${{ inputs.AZ_MODULE_VERSION == '' }}
-    run: |
-      $latestVersionId = "7.4.0"#(Find-Module -Name az).Version
-      Write-Output "AZ_MODULE_VERSION=$latestVersionId" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-    shell: pwsh
+    - name: 'Get Latest Az version'
+      if: ${{ inputs.AZ_MODULE_VERSION == '' }}
+      run: |
+        $latestVersionId = "7.4.0"#(Find-Module -Name az).Version
+        Write-Output "AZ_MODULE_VERSION=$latestVersionId" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+      shell: pwsh
 
-  - name: 'Cache Az module'
-    id: cache-az-module
-    if: ${{ inputs.AZ_MODULE_VERSION == '' }}
-    uses: actions/cache@v2
-    with:
-      path: ${{ inputs.modulesFolder }}
-      key: '"AzModule" | "${{ env.AZ_MODULE_VERSION }}"'
+    - name: 'Cache Az module'
+      id: cache-az-module
+      if: ${{ inputs.AZ_MODULE_VERSION == '' }}
+      uses: actions/cache@v2
+      with:
+        path: ${{ inputs.modulesFolder }}
+        key: '"AzModule" | "${{ env.AZ_MODULE_VERSION }}"'
 
-  - name: 'Dependencies'
-    if: ${{ inputs.AZ_MODULE_VERSION == '' || steps.cache-az-module.outputs.cache-hit != 'true' }}
-    run: |
-      if(-not (Test-Path -Path '${{ inputs.modulesFolder }}')) {
-      mkdir '${{ inputs.modulesFolder }}'
-      }
-      $params = @{
-        Name            = 'Az'
-        Path            = '${{ inputs.modulesFolder }}'
-        Force           = $true
-      }
-      if('${{ env.AZ_MODULE_VERSION }}') {
-        $params.RequiredVersion = '${{ env.AZ_MODULE_VERSION }}'
-      }
-      Save-Module @params
-    shell: pwsh
+    - name: 'Dependencies'
+      if: ${{ inputs.AZ_MODULE_VERSION == '' || steps.cache-az-module.outputs.cache-hit != 'true' }}
+      run: |
+        if(-not (Test-Path -Path '${{ inputs.modulesFolder }}')) {
+        mkdir '${{ inputs.modulesFolder }}'
+        }
+        $params = @{
+          Name            = 'Az'
+          Path            = '${{ inputs.modulesFolder }}'
+          Force           = $true
+        }
+        if('${{ env.AZ_MODULE_VERSION }}') {
+          $params.RequiredVersion = '${{ env.AZ_MODULE_VERSION }}'
+        }
+        Save-Module @params
+      shell: pwsh
 
-  - name: 'Connect'
+    - name: 'Connect'
         run: |
           $Env:PSModulePath = $Env:PSModulePath, '${{ inputs.modulesFolder }}' -join [IO.Path]::PathSeparator
           if('${{ inputs.ARM_CLIENT_ID}}') {
