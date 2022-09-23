@@ -7,7 +7,7 @@ inputs:
     default: ''
   modulesFolder:
     description: 'Location of modules folder'
-    default: './root'
+    default: '$env:GITHUB_WORKSPACE/Modules'
   ARM_CLIENT_ID:
     description: 'ARM Client ID'
     default: ''
