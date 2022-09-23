@@ -61,13 +61,13 @@ jobs:
             Write-Output "1. GitHub workspace: $env:GITHUB_WORKSPACE"
             Write-Output "2. New branch name received: '${{ env.newbranchname }}'"
             $Env:PSModulePath = $Env:PSModulePath, '${{ env.modulesFolder }}' -join [IO.Path]::PathSeparator
-            Import-Module /utilities/tools/Carmlizer/src/internal/Functions/DiscoverResources.ps1 -Force
-            Import-Module /utilities/tools/Carmlizer/src/internal/Functions/Update-FolderStructureInJson.ps1 -Force
-            Import-Module /utilities/tools/Carmlizer/src/internal/Functions/Modify-SettingFileName.ps1 -Force
-            Import-Module /utilities/tools/Carmlizer/src/Get-CARMLPull.ps1 -Force
-            Import-Module /utilities/tools/Carmlizer/src/internal/Functions/Convert-ARMToBicepParameters.ps1 -Force
+            Import-Module .\utilities\tools\Carmlizer\src\internal\Functions\DiscoverResources.ps1 -Force
+            Import-Module .\utilities\tools\Carmlizer\src\internal\Functions\Update-FolderStructureInJson.ps1 -Force
+            Import-Module .\utilities\tools\Carmlizer\src\internal\Functions\Modify-SettingFileName.ps1 -Force
+            Import-Module .\utilities\tools\Carmlizer\src\Get-CARMLPull.ps1 -Force
+            Import-Module .\utilities\tools\Carmlizer\src\internal\Functions\Convert-ARMToBicepParameters.ps1 -Force
 
-            $settingfile=get-content -path /utilities/tools/Carmlizer/src/Settings.json
+            $settingfile=get-content -path \utilities\tools\Carmlizer\src\Settings.json
             $IncludeWorkloadSubscriptionId=($settingfile | ConvertFrom-Json).RelocationSettings.IncludeWorkloadSubscriptionId
             foreach($subscriptionid in $IncludeWorkloadSubscriptionId)
             {
@@ -113,20 +113,20 @@ jobs:
           }
           catch{
             $branchName = '${{ env.newbranchname }}'
-            Import-Module "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/internal/Functions/Log-Exceptions.ps1" -Force
+            Import-Module "$env:GITHUB_WORKSPACE\utilities\tools\Carmlizer\src\internal\Functions\Log-Exceptions.ps1" -Force
             $scriptPath= ($MyInvocation.MyCommand).Definition
             $scriptName= "Pull-Pipeline"+"_"+([io.fileinfo]$MyInvocation.MyCommand.Definition).BaseName
-            $settinglocation=(Get-ChildItem -Path "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/").Name
+            $settinglocation=(Get-ChildItem -Path "$env:GITHUB_WORKSPACE\utilities\tools\Carmlizer\src\").Name
             foreach($locationfile in $settinglocation){
               if($locationfile -match "Settings.json")
               {
-                $settingfile=get-content -path "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/src/$locationfile"
+                $settingfile=get-content -path "$env:GITHUB_WORKSPACE\utilities\tools\Carmlizer\src\$locationfile"
                 $logPath=($settingfile | ConvertFrom-Json).RelocationSettings.LogPath
               }
             }
             $Result = ""
             if($Error.Count){ $Result = "Failed"}
-            Log-Exceptions -ScriptName $scriptName -LogPath "$env:GITHUB_WORKSPACE/utilities/tools/Carmlizer/$logPath" -Exception "$($PSItem.Exception.Message)" -Result $Result -ScriptPath $scriptPath -branchName $branchName
+            Log-Exceptions -ScriptName $scriptName -LogPath "$env:GITHUB_WORKSPACE\utilities\tools\Carmlizer\$logPath" -Exception "$($PSItem.Exception.Message)" -Result $Result -ScriptPath $scriptPath -branchName $branchName
             $LASTEXITCODE = 1
             write-host "powershell exit code" $LASTEXITCODE -BackgroundColor Red
           }
