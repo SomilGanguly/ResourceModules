@@ -16,6 +16,12 @@ jobs:
     name: 'Relocation Pull'
     runs-on: ubuntu-latest
     steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
       - name: 'Execute shared steps'
         uses: ./../../utilities/pipelines/Carmlizer/.templates
         with:
