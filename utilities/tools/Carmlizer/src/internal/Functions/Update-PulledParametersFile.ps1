@@ -1,57 +1,3 @@
-
-function Get-CustomParameterObj {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [PSCustomObject] $obj,
-
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [PSCustomObject] $parameterObj,
-
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [string] $objectType
-    )
-    $ParamsToExclude = @("apiVersion", "dependsOn")
-    
-    if ($obj){
-        $obj | Get-Member -MemberType NoteProperty | ForEach-Object {
-        $tempKey= $_.Name
-        $jsonRequest = @{
-                            "value" = $obj.$tempKey
-                        }
-        $parameterObj.parameters | Where-Object {
-            $tempKey -notin $ParamsToExclude } | Add-Member -Name $tempKey -MemberType NoteProperty -Value $jsonRequest
-
-        if($obj.$tempKey) { Get-CustomParameterObj -obj $obj.$tempKey -parameterObj $parameterObj.parameters -objectType $objectType}
-        else{ return $parameterObj.parameters}
-        }
-    }
-}
-
-function Get-SubResourceObjectType {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [string]$resourceType,
-
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [string]$subType,
-
-        [Parameter(Mandatory=$True, ValueFromPipeline=$True)]
-        [string]$carmlPath
-    )
-    # Use the Parent Module for Building arm template.
-    $modulePath = $carmlPath+$resourceType.Replace("/"+$subType,"")
-
-    # Build Json for parsing the parameters
-    az bicep build -f $modulePath/deploy.bicep
-
-    # Getting the json file as pscustomobject
-    $carmlContent = (Get-Content $modulePath/deploy.json) | ConvertFrom-Json 
-
-    Write-Host $subType " : " $carmlContent.parameters.$subType.type
-    return $carmlContent.parameters.$subType.type
-}
 function Convert-ARMToBicepParameters {
     Param(
         [parameter(mandatory)][string] $exportedArmLocation,
@@ -59,41 +5,133 @@ function Convert-ARMToBicepParameters {
     )
     Write-Host $exportedArmLocation
     Write-Host $proccessedArmLocation
-    $inputJson = Get-content -Path $exportedArmLocation
+    $inputJson = Get-Content -Path $exportedArmLocation
     $jsonConvertInputJson = $inputJson | ConvertFrom-Json
-
-    $parameterObjs = Get-content -path "C:/Users/siddhigupta.FAREAST/app-code/CARMLExport/src/data/DefaultParameterTemplate.json"
+    $count = 0
+    $parameterObjs = Get-Content -Path '.\src\data\DefaultParameterTemplate.json'
     $parameterObj = $parameterObjs | ConvertFrom-Json
+    foreach ($eachInputJson in $jsonConvertInputJson) {
+        foreach ($eachResourceInputJson in $eachInputJson.resources) {
+            if ($eachResourceInputJson.type -eq 'Microsoft.Storage/storageAccounts') {
+                $memberType = ($eachResourceInputJson | Get-Member -MemberType *Property).Name
+                foreach ($member in $memberType) {
+                    if ($member -in @('properties')) {
+                        $memberprop = ($eachResourceInputJson.properties | Get-Member -MemberType *Property).Name
+                        foreach ($property in $memberprop) {
+                            if ($property -in @('encryption')) {
+                                $jsonRequest = @{
+                                    'value' = $eachResourceInputJson.properties.$property.requireInfrastructureEncryption
+                                }
+                                $parameterObj.parameters | Add-Member -Name 'requireInfrastructureEncryption' -MemberType NoteProperty -Value $jsonRequest
+                                if ($eachResourceInputJson.properties.$property.keySource -eq 'Microsoft.Keyvault') {
+                                    $jsonRequest = @{
+                                        'value' = $eachResourceInputJson.properties.$property.keyvaultproperties.keyname
+                                    }
+                                    $parameterObj.parameters | Add-Member -Name 'cMKKeyName' -MemberType NoteProperty -Value $jsonRequest
 
-    foreach ($eachResourceInputJson in $jsonConvertInputJson.resources) {
-        #$eachResourceInputJson = $jsonConvertInputJson.resources[0]
-        $resourceType = $eachResourceInputJson.type
-        Write-Host "-----" $resourceType "-----"
-        
-        if ( $resourceType.Split("/").Length -gt 2){
-            $subtypeFull =  $resourceType
-            $subType = $subtypeFull.Split('/', 3)
-        } 
-        else { $subtypeFull = "" }
-    
-        if ($subtypeFull) {
+                                    $keyVaultResourceName = ($eachResourceInputJson.properties.$property.keyvaultproperties.keyvaulturi).Split('.')[0].Substring(8)
+                                    $keyvaultResourceId = (Get-AzKeyVault -VaultName $keyVaultResourceName).ResourceId
+                                    $jsonRequest = @{
+                                        'value' = $keyvaultResourceId
+                                    }
+                                    $parameterObj.parameters | Add-Member -Name 'cMKKeyVaultResourceId' -MemberType NoteProperty -Value $jsonRequest
+                                }
+                                if ($null -ne $eachResourceInputJson.properties.$property.identity.userAssignedIdentity) {
+                                    $jsonRequest = @{
+                                        'value' = $eachResourceInputJson.properties.$property.identity.userAssignedIdentity
+                                    }
+                                    $parameterObj.parameters | Add-Member -Name 'cMKUserAssignedIdentityResourceId' -MemberType NoteProperty -Value $jsonRequest
+                                }
 
-            ## Call to find sub-resource object type
-            $objectType = Get-SubResourceObjectType -resourceType $resourceType  -subType $subType[$subType.Length - 1] -carmlPath $carmlPath
-        } 
-        else { Write-Host "No sub type" }
-    
-        ## Call to find generate parameters object
-        Get-CustomParameterObj -obj $eachResourceInputJson -parameterObj $parameterObj.parameters -objectType $objectType
+                            } else {
+                                $jsonRequest = @{
+                                    'value' = $eachResourceInputJson.properties.$property
+                                }
+                                $parameterObj.parameters | Add-Member -Name $property -MemberType NoteProperty -Value $jsonRequest
+                            }
+                        }
+                    }
+                    if ($member -inotin @('type', 'dependsOn', 'properties', 'apiVersion') ) {
+                        $member2 = $member
+                        $jsonRequest = @{
+                            'value' = $eachResourceInputJson.$member
+                        }
+                        if ($member -in @('identity')) {
+                            if ($eachResourceInputJson.$member.type -like '*SystemAssigned*') {
+                                $member2 = 'systemAssignedIdentity'
+                                $jsonRequest = @{
+                                    'value' = $true
+                                }
+                            }
+                            if (($eachResourceInputJson.$member | Get-Member -MemberType *Property).Name -contains 'userAssignedIdentities') {
+                                $member1 = 'userAssignedIdentities'
+                                $x = ($eachResourceInputJson.$member.userAssignedIdentities | Get-Member -MemberType *Property).Name
+                                $jsonRequest1 = @{
+                                    'value' = [PSCustomObject]@{
+                                        $x = [PSCustomObject]@{}
+                                    }
+
+                                }
+                                $parameterObj.parameters | Add-Member -Name $member1 -MemberType NoteProperty -Value $jsonRequest1
+                            }
+                        }
+                        if ($member -in @('Sku')) {
+                            $member2 = $member
+                            $jsonRequest = @{
+                                'value' = $eachResourceInputJson.$member.name
+                            }
+                        }
+                        $parameterObj.parameters | Add-Member -Name $member2 -MemberType NoteProperty -Value $jsonRequest
+                    }
+                }
+                $count += 1
+            }
+            if ($eachResourceInputJson.type -eq 'Microsoft.Storage/storageAccounts/blobServices') {
+                $memberType = ($eachResourceInputJson | Get-Member -MemberType *Property).Name
+                $blobServices = [PSCustomObject]@{
+                    deleteRetentionPolicy = $eachResourceInputJson.properties.deleteRetentionPolicy.enabled
+                }
+                $jsonRequest = @{
+                    'value' = $blobServices
+                }
+                $parameterObj.parameters | Add-Member -Name 'blobServices' -MemberType NoteProperty -Value $jsonRequest
+            }
+            if ($eachResourceInputJson.type -eq 'Microsoft.Storage/storageAccounts/fileServices') {
+                $memberType = ($eachResourceInputJson | Get-Member -MemberType *Property).Name
+                $fileServices = [PSCustomObject]@{
+                    shareDeleteRetentionPolicy = $eachResourceInputJson.properties.shareDeleteRetentionPolicy
+                }
+                $jsonRequest = @{
+                    'value' = $fileServices
+                }
+                $parameterObj.parameters | Add-Member -Name 'fileServices' -MemberType NoteProperty -Value $jsonRequest
+            }
+            if ($eachResourceInputJson.type -eq 'Microsoft.Storage/storageAccounts/queueServices') {
+                $memberType = ($eachResourceInputJson | Get-Member -MemberType *Property).Name
+                $queueServices = [PSCustomObject]@{
+                }
+                $jsonRequest = @{
+                    'value' = $queueServices
+                }
+                $parameterObj.parameters | Add-Member -Name 'queueServices' -MemberType NoteProperty -Value $jsonRequest
+            }
+            if ($eachResourceInputJson.type -eq 'Microsoft.Storage/storageAccounts/tableServices') {
+                $memberType = ($eachResourceInputJson | Get-Member -MemberType *Property).Name
+                $tableServices = [PSCustomObject]@{
+                }
+                $jsonRequest = @{
+                    'value' = $tableServices
+                }
+                $parameterObj.parameters | Add-Member -Name 'tableServices' -MemberType NoteProperty -Value $jsonRequest
+            }
+        }
     }
 
-    # $jqJsonTemplate = "$statePath/src/storage_parameter_jq.jq"
-    # $parameterToObj = ($parameters | ConvertTo-Json -Depth 100 | jq -r -f $jqJsonTemplate | ConvertFrom-Json)
-    Write-Host "parameter to object" $parameterToObj
-    #ConvertTo-Json -InputObject $parameterToObj -Depth 100 | Set-Content -Path $proccessedArmLocation
+    $jqJsonTemplate = "$statePath/src/storage_parameter_jq.jq"
+    $parameters = $parameterObj.parameters
+    Write-Host $parameters
+    $parameterToObj = ($parameters | ConvertTo-Json -Depth 100 | jq -r -f $jqJsonTemplate | ConvertFrom-Json)
+    Write-Host 'parameter to object' $parameterToObj
+    ConvertTo-Json -InputObject $parameterToObj -Depth 100 | Set-Content -Path $proccessedArmLocation
 }
-
-$tempExportPath = 'C:/Users/siddhigupta.FAREAST/app-code/CARMLExport/Infra_Apps/rakshana_subscription/cost/Microsoft.Storage_storageAccounts/westredisrak.deploy.json'
-$paramExportPath = 'C:/Users/siddhigupta.FAREAST/app-code/CARMLExport/Infra_Apps/rakshana_subscription/cost/Microsoft.Storage_storageAccounts/parameters/param_storage.json'
-Convert-ARMToBicepParameters -exportedArmLocation $tempExportPath -proccessedArmLocation $paramExportPath
 
