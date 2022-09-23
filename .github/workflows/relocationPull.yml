@@ -103,7 +103,7 @@ jobs:
             git commit -m "Update from Build"
 
             Write-Verbose "Pushing the changes..." -Verbose
-            git push origin "${{ env.newbranchname }}"
+            git push -f origin "${{ env.newbranchname }}"
 
             Write-Verbose "CHECK GIT STATUS..." -Verbose
             git status
