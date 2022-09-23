@@ -10,7 +10,7 @@ on:
         default: true
   push:
     branches:
-      - users/rakshana/carmlizergithubactions
+      - main
 
 env:
   modulesFolder: './Modules'
