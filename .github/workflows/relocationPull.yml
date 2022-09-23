@@ -2,15 +2,6 @@ name: 'Relocation - Pull_Rakshana'
 
 on:
   workflow_dispatch:
-    inputs:
-      removeDeployment:
-        type: boolean
-        description: 'Remove deployed module'
-        required: false
-        default: true
-  push:
-    branches:
-      - main
 
 env:
   modulesFolder: './Modules'
