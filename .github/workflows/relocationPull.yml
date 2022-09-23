@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  # modulesFolder: './Modules'
+  modulesFolder: './Modules'
   WorkloadFolderName: 'Infra_Apps'
   skipComponentGovernanceDetection: true
   branch: 'relocationpullbranch'
@@ -28,6 +28,7 @@ jobs:
           ARM_CLIENT_ID: '${{ secrets.ARM_CLIENT_ID }}'
           ARM_CLIENT_SECRET: '${{ secrets.ARM_CLIENT_SECRET }}'
           ARM_TENANT_ID: '${{ secrets.ARM_TENANT_ID }}'
+          modulesFolder: '${{ env.modulesFolder }}'
 
       - name: 'Branch detection'
         run: |
