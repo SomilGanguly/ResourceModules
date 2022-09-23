@@ -1,7 +1,7 @@
 name: 'Relocation - Pull_Rakshana'
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 env:
   modulesFolder: './Modules'
