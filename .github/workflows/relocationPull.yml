@@ -1,6 +1,7 @@
 name: 'Relocation - Pull_Rakshana'
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - users/rakshana/carmlizergithubactions
